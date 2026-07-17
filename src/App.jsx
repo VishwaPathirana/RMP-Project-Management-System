@@ -852,10 +852,8 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Assignee</th>
-                    <th>All</th>
-                    <th>Completed</th>
-                    <th>In Progress</th>
-                    <th>Overdue</th>
+                    <th>Tasks</th>
+                    <th>Task Breakdown</th>
                     <th>Days engaged</th>
                     <th>Avg progress</th>
                   </tr>
@@ -864,10 +862,19 @@ export default function App() {
                   {mByAssignee.map((p) => (
                     <tr key={p.assignee}>
                       <td><strong>{p.assignee}</strong></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
+                      <td>{p.tasks}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <ProjectStatusCircle
+                            notStarted={p.notStarted}
+                            inProgress={p.inProgress}
+                            completed={p.completed}
+                          />
+                          <span style={{ fontSize: "11.5px", color: "#9BA1AA" }}>
+                            {p.completed} / {p.inProgress} / {p.notStarted}
+                          </span>
+                        </div>
+                      </td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
@@ -1012,10 +1019,8 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Assignee</th>
-                    <th>All</th>
-                    <th>Completed</th>
-                    <th>In Progress</th>
-                    <th>Overdue</th>
+                    <th>Tasks</th>
+                    <th>Task Breakdown</th>
                     <th>Days engaged</th>
                     <th>Avg progress</th>
                   </tr>
@@ -1024,10 +1029,19 @@ export default function App() {
                   {pByAssignee.map((p) => (
                     <tr key={p.assignee}>
                       <td><strong>{p.assignee}</strong></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
+                      <td>{p.tasks}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <ProjectStatusCircle
+                            notStarted={p.notStarted}
+                            inProgress={p.inProgress}
+                            completed={p.completed}
+                          />
+                          <span style={{ fontSize: "11.5px", color: "#9BA1AA" }}>
+                            {p.completed} / {p.inProgress} / {p.notStarted}
+                          </span>
+                        </div>
+                      </td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
