@@ -1,13 +1,44 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabaseClient";
+import logo from "./logo.jpg";
+import loginBanner from "./login-banner.png";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus,
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 
 const STATUS_COLOR = { "Not Started": "#6B7280", "In Progress": "#F2B705", Completed: "#3DA35D" };
+
+const CHART_COLORS = [
+  "#3DA35D", // Green
+  "#F26430", // Orange
+  "#007BFF", // Blue
+  "#8E44AD", // Purple
+  "#E74C3C", // Red
+  "#16A085", // Teal
+  "#F39C12", // Amber
+  "#34495E", // Navy
+  "#D35400", // Dark Orange
+  "#2C3E50", // Dark Blue
+  "#27AE60", // Medium Green
+  "#2980B9", // Medium Blue
+];
+
+const DEFAULT_NAMES = [
+  "WASTE WATER/CANTEEN/OTHERS",
+  "MILK SECTION",
+  "DC/LOW FAT SECTION",
+  "YARA",
+  "NEW OIL MILL",
+  "YARD A B C",
+  "WET A B C",
+  "Washrooms",
+  "Living Quarters",
+  "Creamed Coconut Plant",
+  "Mill Garden"
+];
 
 function statusOf(progress) {
   if (progress >= 100) return "Completed";
@@ -54,12 +85,22 @@ export default function App() {
       { username: "Normal", role: "normal", password: "RPM5678" }
     ];
   });
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("m-dashboard");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
-  const [filterProject, setFilterProject] = useState("All");
-  const [filterStatus, setFilterStatus] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProject, setSelectedProject] = useState("");
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [formType, setFormType] = useState("maintenance");
+  const [mSearch, setMSearch] = useState("");
+  const [pSearch, setPSearch] = useState("");
+  const [tSearch, setTSearch] = useState("");
+  const [mStatusFilter, setMStatusFilter] = useState("All");
+  const [pStatusFilter, setPStatusFilter] = useState("All");
+  const [tStatusFilter, setTStatusFilter] = useState("All");
+  const [mCreatorFilter, setMCreatorFilter] = useState("All");
+  const [pCreatorFilter, setPCreatorFilter] = useState("All");
+  const [tCreatorFilter, setTCreatorFilter] = useState("All");
   const [err, setErr] = useState("");
 
   // Fetch tasks from Supabase
@@ -70,7 +111,23 @@ export default function App() {
         .select("*")
         .order("createdAt", { ascending: false });
       if (error) throw error;
-      const parsed = data || [];
+      const parsed = (data || []).map((t) => {
+        let location = "";
+        let assigneeName = "";
+        if (t.assignee && t.assignee.includes(" ||| ")) {
+          const parts = t.assignee.split(" ||| ");
+          location = parts[0];
+          assigneeName = parts[1];
+        } else {
+          location = t.assignee || "";
+          assigneeName = "";
+        }
+        return {
+          ...t,
+          location,
+          assigneeName,
+        };
+      });
       try {
         localStorage.setItem("cached-job-tasks", JSON.stringify(parsed));
       } catch (e) { }
@@ -175,8 +232,13 @@ export default function App() {
       const nextIds = new Set(next.map((t) => t.id));
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
-      // Strip client-only fields that don't exist as columns in the tasks table
-      const dbRows = next.map(({ endDateOverride, ...row }) => row);
+      // Combine location and assigneeName into assignee column, strip other client-only fields
+      const dbRows = next.map(({ endDateOverride, location, assigneeName, ...row }) => {
+        return {
+          ...row,
+          assignee: `${location || ""} ||| ${assigneeName || ""}`
+        };
+      });
 
       if (toDelete.length) {
         const { error } = await supabase
@@ -228,14 +290,14 @@ export default function App() {
   async function handleLogin(name, role) {
     const s = { name: name.trim(), role };
     setSession(s);
-    setView("dashboard");
+    setView("m-dashboard");
     try {
       localStorage.setItem("session", JSON.stringify(s));
     } catch (e) { }
   }
   async function handleLogout() {
     setSession(null);
-    setView("dashboard");
+    setView("m-dashboard");
     try {
       localStorage.removeItem("session");
     } catch (e) { }
@@ -264,15 +326,45 @@ export default function App() {
         ...tasks,
       ];
 
-    const finalTasks = nextList.map((t) =>
-      t.project && t.project.trim().toLowerCase() === data.project.trim().toLowerCase()
-        ? { ...t, projectToken: data.projectToken }
-        : t
-    );
-
-    await saveTasks(finalTasks);
+    await saveTasks(nextList);
     setShowForm(false);
     setEditTask(null);
+  }
+
+  async function handleCreateProject(name) {
+    if (!name || !name.trim()) return;
+    const trimmedName = name.trim();
+
+    const exists = tasks.some(
+      (t) => t.projectToken !== "maintenance" && t.project && t.project.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (exists) {
+      alert("Project already exists!");
+      return;
+    }
+
+    const placeholder = {
+      id: "P-" + Date.now(),
+      project: trimmedName,
+      projectToken: "project",
+      task: "__init__",
+      assignee: "",
+      progress: 0,
+      startDate: todayStr(),
+      daysRequired: 0,
+      endDate: todayStr(),
+      createdBy: session.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveTasks([placeholder, ...tasks]);
+    setSelectedProject(trimmedName);
+  }
+
+  function handleEditTaskSelect(t) {
+    setFormType(t.projectToken === "maintenance" ? "maintenance" : "project");
+    setEditTask(t);
   }
 
   async function deleteTask(id) {
@@ -286,57 +378,87 @@ export default function App() {
     await saveTasks(next);
   }
 
-  const projectNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.project).filter(Boolean))), [tasks]);
-  const assigneeNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.assignee).filter(Boolean))), [tasks]);
+  const maintenanceTasks = useMemo(() => tasks.filter(t => t.projectToken === "maintenance" && t.task !== "__init__"), [tasks]);
+  const projectTasks = useMemo(() => tasks.filter(t => t.projectToken !== "maintenance" && t.task !== "__init__"), [tasks]);
+  const projectsList = useMemo(() => Array.from(new Set(tasks.filter(t => t.projectToken !== "maintenance" && t.project).map(t => t.project))), [tasks]);
+  const assigneeNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.location).filter(Boolean))), [tasks]);
+  const creatorNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.createdBy).filter(Boolean))), [tasks]);
 
-  const totals = useMemo(() => {
+  const mTotals = useMemo(() => {
     const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
     let daysScope = 0;
-    tasks.forEach((t) => {
+    let count = 0;
+    maintenanceTasks.forEach((t) => {
+      count++;
       const progressVal = Number(t.progress) || 0;
       c[statusOf(progressVal)]++;
       const daysVal = Number(t.daysRequired);
       daysScope += isNaN(daysVal) ? 0 : daysVal;
     });
     return {
-      totalProjects: projectNames.length,
-      totalTasks: tasks.length,
+      totalTasks: count,
       daysScope,
       statusCounts: c,
     };
-  }, [tasks, projectNames]);
+  }, [maintenanceTasks]);
 
-  const byProject = useMemo(() => {
+  const mOverdue = useMemo(() => {
+    const today = todayStr();
+    return maintenanceTasks.filter((t) => t.endDate && t.endDate < today && Number(t.progress) < 100);
+  }, [maintenanceTasks]);
+
+  const mByAssignee = useMemo(() => {
+    const today = todayStr();
     const map = {};
-    tasks.forEach((t) => {
-      const key = t.project || "Unassigned project";
-      if (!map[key]) map[key] = { project: key, token: t.projectToken || "", tasks: 0, days: 0, progressSum: 0 };
+    maintenanceTasks.forEach((t) => {
+      const key = t.assigneeName || "Unassigned";
+      if (!map[key]) {
+        map[key] = {
+          assignee: key,
+          tasks: 0,
+          completed: 0,
+          inProgress: 0,
+          notStarted: 0,
+          overdue: 0,
+          days: 0,
+          progressSum: 0
+        };
+      }
 
       const daysVal = Number(t.daysRequired);
-      const progVal = Number(t.progress);
+      const progVal = Number(t.progress) || 0;
 
       map[key].tasks++;
       map[key].days += isNaN(daysVal) ? 0 : daysVal;
       map[key].progressSum += isNaN(progVal) ? 0 : progVal;
-      if (t.projectToken) {
-        map[key].token = t.projectToken;
+
+      if (progVal === 100) {
+        map[key].completed++;
+      } else if (progVal > 0) {
+        map[key].inProgress++;
+      } else {
+        map[key].notStarted++;
+      }
+
+      if (t.endDate && t.endDate < today && progVal < 100) {
+        map[key].overdue++;
       }
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
       return {
         ...p,
-        avgProgress: isNaN(avg) ? 0 : avg,
-        displayName: p.token ? `${p.project} (${p.token})` : p.project
+        avgProgress: isNaN(avg) ? 0 : avg
       };
     });
-  }, [tasks]);
+  }, [maintenanceTasks]);
 
-  const byAssignee = useMemo(() => {
+  const mByTaskName = useMemo(() => {
     const map = {};
-    tasks.forEach((t) => {
-      const key = t.assignee || "Unassigned";
-      if (!map[key]) map[key] = { assignee: key, tasks: 0, days: 0, progressSum: 0 };
+    maintenanceTasks.forEach((t) => {
+      if (!t.project) return;
+      const key = t.project;
+      if (!map[key]) map[key] = { displayName: key, tasks: 0, days: 0, progressSum: 0 };
 
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress);
@@ -352,28 +474,197 @@ export default function App() {
         avgProgress: isNaN(avg) ? 0 : avg
       };
     });
-  }, [tasks]);
+  }, [maintenanceTasks]);
 
-  const overdue = useMemo(() => {
+  const mByCreator = useMemo(() => {
+    const map = {};
+    maintenanceTasks.forEach((t) => {
+      if (!t.createdBy) return;
+      const key = t.createdBy;
+      if (!map[key]) map[key] = { creator: key, tasks: 0, days: 0, progressSum: 0 };
+
+      const daysVal = Number(t.daysRequired);
+      const progVal = Number(t.progress);
+
+      map[key].tasks++;
+      map[key].days += isNaN(daysVal) ? 0 : daysVal;
+      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+    });
+    return Object.values(map).map((p) => {
+      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
+      return {
+        ...p,
+        avgProgress: isNaN(avg) ? 0 : avg
+      };
+    });
+  }, [maintenanceTasks]);
+
+  const pTotals = useMemo(() => {
+    const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
+    let daysScope = 0;
+    let count = 0;
+    projectTasks.forEach((t) => {
+      count++;
+      const progressVal = Number(t.progress) || 0;
+      c[statusOf(progressVal)]++;
+      const daysVal = Number(t.daysRequired);
+      daysScope += isNaN(daysVal) ? 0 : daysVal;
+    });
+    return {
+      totalProjects: projectsList.length,
+      totalTasks: count,
+      daysScope,
+      statusCounts: c,
+    };
+  }, [projectTasks, projectsList]);
+
+  const pOverdue = useMemo(() => {
     const today = todayStr();
-    return tasks.filter((t) => t.endDate && t.endDate < today && Number(t.progress) < 100);
-  }, [tasks]);
+    return projectTasks.filter((t) => t.endDate && t.endDate < today && Number(t.progress) < 100);
+  }, [projectTasks]);
 
-  const filteredTasks = useMemo(() => {
-    let list = tasks;
-    if (filterProject !== "All") list = list.filter((t) => t.project === filterProject);
-    if (filterStatus !== "All") list = list.filter((t) => statusOf(t.progress) === filterStatus);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((t) =>
-        (t.projectToken && t.projectToken.toLowerCase().includes(q)) ||
-        (t.project && t.project.toLowerCase().includes(q)) ||
+  const pByAssignee = useMemo(() => {
+    const today = todayStr();
+    const map = {};
+    projectTasks.forEach((t) => {
+      const key = t.assigneeName || "Unassigned";
+      if (!map[key]) {
+        map[key] = {
+          assignee: key,
+          tasks: 0,
+          completed: 0,
+          inProgress: 0,
+          notStarted: 0,
+          overdue: 0,
+          days: 0,
+          progressSum: 0
+        };
+      }
+
+      const daysVal = Number(t.daysRequired);
+      const progVal = Number(t.progress) || 0;
+
+      map[key].tasks++;
+      map[key].days += isNaN(daysVal) ? 0 : daysVal;
+      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+
+      if (progVal === 100) {
+        map[key].completed++;
+      } else if (progVal > 0) {
+        map[key].inProgress++;
+      } else {
+        map[key].notStarted++;
+      }
+
+      if (t.endDate && t.endDate < today && progVal < 100) {
+        map[key].overdue++;
+      }
+    });
+    return Object.values(map).map((p) => {
+      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
+      return {
+        ...p,
+        avgProgress: isNaN(avg) ? 0 : avg
+      };
+    });
+  }, [projectTasks]);
+
+  const byProject = useMemo(() => {
+    const map = {};
+    projectTasks.forEach((t) => {
+      if (!t.project) return;
+      const key = t.project;
+      if (!map[key]) {
+        map[key] = {
+          project: key,
+          token: t.projectToken || "",
+          tasks: 0,
+          days: 0,
+          progressSum: 0,
+          statusCounts: { "Not Started": 0, "In Progress": 0, Completed: 0 }
+        };
+      }
+
+      const daysVal = Number(t.daysRequired);
+      const progVal = Number(t.progress);
+
+      map[key].tasks++;
+      map[key].days += isNaN(daysVal) ? 0 : daysVal;
+      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[key].statusCounts[statusOf(progVal)]++;
+    });
+    return Object.values(map).map((p) => {
+      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
+      return {
+        ...p,
+        avgProgress: isNaN(avg) ? 0 : avg,
+        displayName: p.project
+      };
+    });
+  }, [projectTasks]);
+
+  const filteredMaintenanceTasks = useMemo(() => {
+    let list = maintenanceTasks;
+    if (mStatusFilter !== "All") {
+      list = list.filter(t => statusOf(t.progress) === mStatusFilter);
+    }
+    if (mCreatorFilter !== "All") {
+      list = list.filter(t => t.createdBy === mCreatorFilter);
+    }
+    if (mSearch.trim()) {
+      const q = mSearch.toLowerCase().trim();
+      list = list.filter(t => 
         (t.task && t.task.toLowerCase().includes(q)) ||
-        (t.assignee && t.assignee.toLowerCase().includes(q))
+        (t.project && t.project.toLowerCase().includes(q)) ||
+        (t.location && t.location.toLowerCase().includes(q)) ||
+        (t.assigneeName && t.assigneeName.toLowerCase().includes(q))
       );
     }
-    return [...list].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [tasks, filterProject, filterStatus, searchQuery]);
+    return list;
+  }, [maintenanceTasks, mSearch, mStatusFilter, mCreatorFilter]);
+
+  const filteredProjectsList = useMemo(() => {
+    let list = projectsList;
+    if (pStatusFilter !== "All") {
+      list = list.filter(p => {
+        const tasksInP = projectTasks.filter(t => t.project === p);
+        const avg = tasksInP.length ? Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length) : 0;
+        const status = avg >= 100 ? "Completed" : avg > 0 ? "In Progress" : "Not Started";
+        return status === pStatusFilter;
+      });
+    }
+    if (pCreatorFilter !== "All") {
+      list = list.filter(p => {
+        const tasksInP = tasks.filter(t => t.project === p);
+        return tasksInP.some(t => t.createdBy === pCreatorFilter);
+      });
+    }
+    if (pSearch.trim()) {
+      const q = pSearch.toLowerCase().trim();
+      list = list.filter(p => p.toLowerCase().includes(q));
+    }
+    return list;
+  }, [projectsList, pSearch, pStatusFilter, pCreatorFilter, projectTasks, tasks]);
+
+  const filteredProjectTasks = useMemo(() => {
+    let list = projectTasks.filter(t => t.project === selectedProject);
+    if (tStatusFilter !== "All") {
+      list = list.filter(t => statusOf(t.progress) === tStatusFilter);
+    }
+    if (tCreatorFilter !== "All") {
+      list = list.filter(t => t.createdBy === tCreatorFilter);
+    }
+    if (tSearch.trim()) {
+      const q = tSearch.toLowerCase().trim();
+      list = list.filter(t => 
+        (t.task && t.task.toLowerCase().includes(q)) ||
+        (t.projectToken && t.projectToken.toLowerCase().includes(q)) ||
+        (t.location && t.location.toLowerCase().includes(q)) ||
+        (t.assigneeName && t.assigneeName.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [projectTasks, selectedProject, tSearch, tStatusFilter, tCreatorFilter]);
 
   if (loadingSession) {
     return (
@@ -405,17 +696,20 @@ export default function App() {
       <style>{CSS}</style>
       <header className="jd-header">
         <div className="jd-brand">
-          <LayoutGrid size={20} />
+          <img src={logo} alt="RMP Logo" className="jd-header-logo" />
           <div>
-            <div className="jd-brand-title">RMP PROJECT MANAGEMENT SYSTEM</div>
-            <div className="jd-brand-sub">Job &amp; Task Dashboard</div>
+            <div className="jd-brand-title">RMP ENGINEERING SYSTEM</div>
+            <div className="jd-brand-sub">Maintainance &amp; Project Dashboard</div>
           </div>
         </div>
         <div className="jd-user">
           <span className="jd-user-name">
             <User size={14} /> {session.name}
           </span>
-          <button className="jd-icon-btn" onClick={handleLogout} title="Log out">
+          <button className="jd-icon-btn jd-hamburger" onClick={() => setMenuOpen(!menuOpen)} title="Toggle menu">
+            <Menu size={16} />
+          </button>
+          <button className="jd-icon-btn jd-logout-btn" onClick={handleLogout} title="Log out">
             <LogOut size={16} />
           </button>
         </div>
@@ -424,56 +718,212 @@ export default function App() {
       {err && <div className="jd-error-bar">{err}</div>}
 
       <nav className="jd-tabs">
-        <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
-          <LayoutGrid size={14} /> Dashboard
+        <button className={view === "m-dashboard" ? "active" : ""} onClick={() => setView("m-dashboard")}>
+          <LayoutGrid size={14} /> Maintenance Dashboard
         </button>
-        <button className={view === "tasks" ? "active" : ""} onClick={() => setView("tasks")}>
-          <ListChecks size={14} /> Tasks
+        <button className={view === "maintenance" ? "active" : ""} onClick={() => setView("maintenance")}>
+          <ListChecks size={14} /> Maintenance Tasks
+        </button>
+        <button className={view === "p-dashboard" ? "active" : ""} onClick={() => setView("p-dashboard")}>
+          <LayoutGrid size={14} /> Projects Dashboard
+        </button>
+        <button className={view === "projects" ? "active" : ""} onClick={() => setView("projects")}>
+          <ListChecks size={14} /> Projects List
         </button>
         {session.role === "management" && (
           <button className={view === "users" ? "active" : ""} onClick={() => setView("users")}>
             <Users size={14} /> Users
           </button>
         )}
-        {session.role === "management" && (
-          <button className="jd-primary-btn jd-tabs-add" onClick={() => { setEditTask(null); setShowForm(true); }}>
-            <Plus size={15} /> Add task
-          </button>
-        )}
       </nav>
 
-      {view === "dashboard" && (
+      {/* Mobile Hamburger menu list */}
+      {menuOpen && (
+        <div className="jd-mobile-menu-overlay" onClick={() => setMenuOpen(false)}>
+          <div className="jd-mobile-menu" onClick={(e) => e.stopPropagation()}>
+            <button className={view === "m-dashboard" ? "active" : ""} onClick={() => { setView("m-dashboard"); setMenuOpen(false); }}>
+              <LayoutGrid size={14} /> Maintenance Dashboard
+            </button>
+            <button className={view === "maintenance" ? "active" : ""} onClick={() => { setView("maintenance"); setMenuOpen(false); }}>
+              <ListChecks size={14} /> Maintenance Tasks
+            </button>
+            <button className={view === "p-dashboard" ? "active" : ""} onClick={() => { setView("p-dashboard"); setMenuOpen(false); }}>
+              <LayoutGrid size={14} /> Projects Dashboard
+            </button>
+            <button className={view === "projects" ? "active" : ""} onClick={() => { setView("projects"); setMenuOpen(false); }}>
+              <ListChecks size={14} /> Projects List
+            </button>
+            {session.role === "management" && (
+              <button className={view === "users" ? "active" : ""} onClick={() => { setView("users"); setMenuOpen(false); }}>
+                <Users size={14} /> Users Panel
+              </button>
+            )}
+            <button className="jd-mobile-menu-logout" onClick={() => { handleLogout(); setMenuOpen(false); }}>
+              <LogOut size={14} /> Log Out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === "m-dashboard" && (
         <main className="jd-main">
           <div className="jd-stats">
-            <StatCard label="Projects" value={totals.totalProjects} />
-            <StatCard label="Total tasks" value={totals.totalTasks} />
-            <StatCard label="Days scope" value={totals.daysScope} />
-            <StatCard label="Not started" value={totals.statusCounts["Not Started"]} color={STATUS_COLOR["Not Started"]} />
-            <StatCard label="In progress" value={totals.statusCounts["In Progress"]} color={STATUS_COLOR["In Progress"]} />
-            <StatCard label="Completed" value={totals.statusCounts.Completed} color={STATUS_COLOR.Completed} />
+            <StatCard label="Total Maintenance Tasks" value={mTotals.totalTasks} />
+            <StatCard label="Days Scope" value={mTotals.daysScope} />
+            <StatCard label="Not started" value={mTotals.statusCounts["Not Started"]} color={STATUS_COLOR["Not Started"]} />
+            <StatCard label="In progress" value={mTotals.statusCounts["In Progress"]} color={STATUS_COLOR["In Progress"]} />
+            <StatCard label="Completed" value={mTotals.statusCounts.Completed} color={STATUS_COLOR.Completed} />
           </div>
 
           <div className="jd-charts">
             <div className="jd-panel">
-              <h4>Task status</h4>
+              <h4>Maintenance Tasks by Category</h4>
               <div style={{ position: "relative", width: "100%", height: "210px" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={[
-                        { name: "Not Started", value: totals.statusCounts["Not Started"] },
-                        { name: "In Progress", value: totals.statusCounts["In Progress"] },
-                        { name: "Completed", value: totals.statusCounts.Completed },
-                      ]}
-                      dataKey="value"
-                      nameKey="name"
+                      data={mByTaskName}
+                      dataKey="tasks"
+                      nameKey="displayName"
                       innerRadius={48}
                       outerRadius={78}
                       paddingAngle={3}
                       stroke="none"
                     >
-                      {["Not Started", "In Progress", "Completed"].map((s) => (
-                        <Cell key={s} fill={STATUS_COLOR[s]} />
+                      {mByTaskName.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="jd-panel jd-panel-wide">
+              <h4>Average progress by task</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={mByTaskName} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid stroke="#343941" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                      {mByTaskName.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="jd-panel">
+            <h4><AlertTriangle size={14} /> Overdue Maintenance Tasks ({mOverdue.length})</h4>
+            {mOverdue.length === 0 ? (
+              <p className="jd-empty-note">Nothing overdue right now.</p>
+            ) : (
+              <table className="jd-table">
+                <thead>
+                  <tr><th>Task No</th><th>Name</th><th>Location</th><th>Assignee</th><th>End date</th><th>Progress</th></tr>
+                </thead>
+                <tbody>
+                  {mOverdue.map((t) => (
+                    <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
+                      <td><strong>{t.task}</strong></td>
+                      <td>{t.project || "—"}</td>
+                      <td>{t.location || "—"}</td>
+                      <td>{t.assigneeName || "—"}</td>
+                      <td className="jd-mono">{fmt(t.endDate)}</td>
+                      <td>{t.progress}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="jd-two-col">
+            <div className="jd-panel">
+              <h4>By assignee</h4>
+              <table className="jd-table">
+                <thead>
+                  <tr>
+                    <th>Assignee</th>
+                    <th>All</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Overdue</th>
+                    <th>Days engaged</th>
+                    <th>Avg progress</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mByAssignee.map((p) => (
+                    <tr key={p.assignee}>
+                      <td><strong>{p.assignee}</strong></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
+                      <td>{p.days}</td>
+                      <td><ProgressBar value={p.avgProgress} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="jd-panel">
+              <h4>By creator / engineer</h4>
+              <table className="jd-table">
+                <thead><tr><th>Creator / Engineer</th><th>Tasks</th><th>Days engaged</th><th>Avg progress</th></tr></thead>
+                <tbody>
+                  {mByCreator.map((p) => (
+                    <tr key={p.creator}>
+                      <td>{p.creator}</td>
+                      <td>{p.tasks}</td>
+                      <td>{p.days}</td>
+                      <td><ProgressBar value={p.avgProgress} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {view === "p-dashboard" && (
+        <main className="jd-main">
+          <div className="jd-stats">
+            <StatCard label="Projects" value={pTotals.totalProjects} />
+            <StatCard label="Total project tasks" value={pTotals.totalTasks} />
+            <StatCard label="Days scope" value={pTotals.daysScope} />
+            <StatCard label="Not started" value={pTotals.statusCounts["Not Started"]} color={STATUS_COLOR["Not Started"]} />
+            <StatCard label="In progress" value={pTotals.statusCounts["In Progress"]} color={STATUS_COLOR["In Progress"]} />
+            <StatCard label="Completed" value={pTotals.statusCounts.Completed} color={STATUS_COLOR.Completed} />
+          </div>
+
+          <div className="jd-charts">
+            <div className="jd-panel">
+              <h4>Tasks by Project</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={byProject}
+                      dataKey="tasks"
+                      nameKey="displayName"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {byProject.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
@@ -491,7 +941,11 @@ export default function App() {
                     <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
                     <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
                     <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
-                    <Bar dataKey="avgProgress" fill="#F26430" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                      {byProject.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -499,20 +953,21 @@ export default function App() {
           </div>
 
           <div className="jd-panel">
-            <h4><AlertTriangle size={14} /> Overdue tasks ({overdue.length})</h4>
-            {overdue.length === 0 ? (
+            <h4><AlertTriangle size={14} /> Overdue Project Tasks ({pOverdue.length})</h4>
+            {pOverdue.length === 0 ? (
               <p className="jd-empty-note">Nothing overdue right now.</p>
             ) : (
               <table className="jd-table">
                 <thead>
-                  <tr><th>Project</th><th>Task</th><th>Assignee</th><th>End date</th><th>Progress</th></tr>
+                  <tr><th>Project</th><th>Task No</th><th>Location</th><th>Assignee</th><th>End date</th><th>Progress</th></tr>
                 </thead>
                 <tbody>
-                  {overdue.map((t) => (
-                    <tr key={t.id} onClick={() => setEditTask(t)}>
-                      <td>{t.project} {t.projectToken && <span className="jd-mono" style={{ color: "var(--text-dim)", fontSize: "11px" }}>({t.projectToken})</span>}</td>
-                      <td>{t.task}</td>
-                      <td>{t.assignee || "—"}</td>
+                  {pOverdue.map((t) => (
+                    <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
+                      <td>{t.project}</td>
+                      <td><strong>{t.task}</strong></td>
+                      <td>{t.location || "—"}</td>
+                      <td>{t.assigneeName || "—"}</td>
                       <td className="jd-mono">{fmt(t.endDate)}</td>
                       <td>{t.progress}%</td>
                     </tr>
@@ -526,13 +981,24 @@ export default function App() {
             <div className="jd-panel">
               <h4>By project</h4>
               <table className="jd-table">
-                <thead><tr><th>Project</th><th>Token</th><th>Tasks</th><th>Days</th><th>Avg progress</th></tr></thead>
+                <thead><tr><th>Project</th><th>Tasks</th><th>Task Breakdown</th><th>Days</th><th>Avg progress</th></tr></thead>
                 <tbody>
                   {byProject.map((p) => (
                     <tr key={p.project}>
                       <td>{p.project}</td>
-                      <td className="jd-mono">{p.token || "—"}</td>
                       <td>{p.tasks}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <ProjectStatusCircle
+                            notStarted={p.statusCounts["Not Started"]}
+                            inProgress={p.statusCounts["In Progress"]}
+                            completed={p.statusCounts.Completed}
+                          />
+                          <span style={{ fontSize: "11.5px", color: "#9BA1AA" }}>
+                            {p.statusCounts.Completed} / {p.statusCounts["In Progress"]} / {p.statusCounts["Not Started"]}
+                          </span>
+                        </div>
+                      </td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
@@ -543,12 +1009,25 @@ export default function App() {
             <div className="jd-panel">
               <h4>By assignee</h4>
               <table className="jd-table">
-                <thead><tr><th>Assignee</th><th>Tasks</th><th>Days engaged</th><th>Avg progress</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Assignee</th>
+                    <th>All</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Overdue</th>
+                    <th>Days engaged</th>
+                    <th>Avg progress</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {byAssignee.map((p) => (
+                  {pByAssignee.map((p) => (
                     <tr key={p.assignee}>
-                      <td>{p.assignee}</td>
-                      <td>{p.tasks}</td>
+                      <td><strong>{p.assignee}</strong></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
@@ -560,57 +1039,92 @@ export default function App() {
         </main>
       )}
 
-      {view === "tasks" && (
+      {view === "maintenance" && (
         <main className="jd-main">
-          <div className="jd-filters">
-            <input
-              type="text"
-              className="jd-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by token, project, task..."
-              style={{ flex: "2", minWidth: "180px" }}
-            />
-            <select className="jd-input" value={filterProject} onChange={(e) => setFilterProject(e.target.value)} style={{ flex: "1", minWidth: "120px" }}>
-              <option value="All">All projects</option>
-              {projectNames.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <select className="jd-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ flex: "1", minWidth: "120px" }}>
-              <option value="All">All statuses</option>
-              <option>Not Started</option>
-              <option>In Progress</option>
-              <option>Completed</option>
-            </select>
+          {/* Maintenance Stats */}
+          <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <StatCard label="Total Maintenance Tasks" value={maintenanceTasks.length} />
+            <StatCard label="In Progress" value={maintenanceTasks.filter(t => statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
+            <StatCard label="Completed" value={maintenanceTasks.filter(t => statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
           </div>
 
           <div className="jd-panel">
-            {filteredTasks.length === 0 ? (
-              <p className="jd-empty-note">No tasks yet — add one with "Add task".</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+              <h4 style={{ margin: 0 }}>Maintenance Tasks</h4>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+                <input
+                  type="text"
+                  className="jd-input"
+                  value={mSearch}
+                  onChange={(e) => setMSearch(e.target.value)}
+                  placeholder="Search by Task No, Name, Location..."
+                  style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
+                />
+                <select
+                  className="jd-input"
+                  value={mStatusFilter}
+                  onChange={(e) => setMStatusFilter(e.target.value)}
+                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Not Started">Not Started</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+                <select
+                  className="jd-input"
+                  value={mCreatorFilter}
+                  onChange={(e) => setMCreatorFilter(e.target.value)}
+                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                >
+                  <option value="All">All Creators</option>
+                  {creatorNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              {session.role === "management" && (
+                <button className="jd-primary-btn" onClick={() => { setFormType("maintenance"); setEditTask(null); setShowForm(true); }}>
+                  <Plus size={14} /> Add Maintenance Task
+                </button>
+              )}
+            </div>
+
+            {filteredMaintenanceTasks.length === 0 ? (
+              <p className="jd-empty-note">No maintenance tasks found.</p>
             ) : (
               <table className="jd-table jd-table-click">
                 <thead>
                   <tr>
-                    <th>Project</th><th>Token</th><th>Task</th><th>Assignee</th><th>Start</th><th>Days</th><th>End</th><th>Progress</th><th>Status</th>
+                    <th>Task No</th>
+                    <th>Name</th>
+                    <th>Location</th>
+                    <th>Assignee</th>
+                    <th>Start Date</th>
+                    <th>Days</th>
+                    <th>Progress</th>
+                    <th>Status</th>
+                    <th>Created By</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTasks.map((t) => {
+                  {filteredMaintenanceTasks.map((t) => {
                     const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
                     return (
-                      <tr key={t.id} onClick={() => setEditTask(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                        <td>{t.project}</td>
-                        <td className="jd-mono">{t.projectToken || "—"}</td>
-                        <td>{t.task}</td>
-                        <td>{t.assignee || "—"}</td>
+                      <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
+                        <td><strong>{t.task}</strong></td>
+                        <td>{t.project || "—"}</td>
+                        <td>{t.location || "—"}</td>
+                        <td>{t.assigneeName || "—"}</td>
                         <td className="jd-mono">{fmt(t.startDate)}</td>
                         <td>{t.daysRequired || "—"}</td>
-                        <td className="jd-mono">{fmt(t.endDate)}</td>
                         <td><ProgressBar value={t.progress} /></td>
                         <td>
                           <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
                             {statusOf(t.progress)}
                           </span>
                         </td>
+                        <td>{t.createdBy}</td>
                       </tr>
                     );
                   })}
@@ -621,6 +1135,258 @@ export default function App() {
         </main>
       )}
 
+      {view === "projects" && (
+        <main className="jd-main">
+          {!selectedProject ? (
+            <>
+              {/* Projects Overview Stats */}
+              <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                <StatCard label="Total Projects" value={projectsList.length} />
+                <StatCard label="In Progress" value={projectsList.filter(p => {
+                  const tasksInP = projectTasks.filter(t => t.project === p);
+                  if (tasksInP.length === 0) return true;
+                  const avg = Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length);
+                  return avg < 100;
+                }).length} color={STATUS_COLOR["In Progress"]} />
+                <StatCard label="Completed" value={projectsList.filter(p => {
+                  const tasksInP = projectTasks.filter(t => t.project === p);
+                  if (tasksInP.length === 0) return false;
+                  const avg = Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length);
+                  return avg >= 100;
+                }).length} color={STATUS_COLOR.Completed} />
+              </div>
+
+              <div className="jd-panel">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+                  <h4 style={{ margin: 0 }}>Projects</h4>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+                    <input
+                      type="text"
+                      className="jd-input"
+                      value={pSearch}
+                      onChange={(e) => setPSearch(e.target.value)}
+                      placeholder="Search projects..."
+                      style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
+                    />
+                    <select
+                      className="jd-input"
+                      value={pStatusFilter}
+                      onChange={(e) => setPStatusFilter(e.target.value)}
+                      style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Not Started">Not Started</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                    <select
+                      className="jd-input"
+                      value={pCreatorFilter}
+                      onChange={(e) => setPCreatorFilter(e.target.value)}
+                      style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                    >
+                      <option value="All">All Creators</option>
+                      {creatorNames.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {session.role === "management" && (
+                    <button className="jd-primary-btn" onClick={() => setShowProjectForm(true)}>
+                      <Plus size={14} /> Create Project
+                    </button>
+                  )}
+                </div>
+
+                {filteredProjectsList.length === 0 ? (
+                  <p className="jd-empty-note">No projects found.</p>
+                ) : (
+                  <table className="jd-table jd-table-click">
+                    <thead>
+                      <tr>
+                        <th>Project Name</th>
+                        <th>Tasks Count</th>
+                        <th>Average Progress</th>
+                        <th>Task Breakdown</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjectsList.map((p) => {
+                        const tasksInP = projectTasks.filter(t => t.project === p);
+                        const avg = tasksInP.length ? Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length) : 0;
+                        const status = avg >= 100 ? "Completed" : avg > 0 ? "In Progress" : "Not Started";
+
+                        const nsCount = tasksInP.filter(t => statusOf(t.progress) === "Not Started").length;
+                        const ipCount = tasksInP.filter(t => statusOf(t.progress) === "In Progress").length;
+                        const cCount = tasksInP.filter(t => statusOf(t.progress) === "Completed").length;
+
+                        return (
+                          <tr key={p} onClick={() => setSelectedProject(p)}>
+                            <td><strong>{p}</strong></td>
+                            <td>{tasksInP.length} tasks</td>
+                            <td><ProgressBar value={avg} /></td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <ProjectStatusCircle notStarted={nsCount} inProgress={ipCount} completed={cCount} />
+                                <div style={{ display: "flex", gap: "4px" }}>
+                                  {cCount > 0 && (
+                                    <span style={{ fontSize: "11px", fontWeight: "600", color: "#3da35d", background: "rgba(61, 163, 93, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                      {cCount}
+                                    </span>
+                                  )}
+                                  {ipCount > 0 && (
+                                    <span style={{ fontSize: "11px", fontWeight: "600", color: "#F26430", background: "rgba(242, 100, 48, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                      {ipCount}
+                                    </span>
+                                  )}
+                                  {nsCount > 0 && (
+                                    <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                      {nsCount}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[status] }}>
+                                {status}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                                <button className="jd-primary-btn" style={{ padding: "4px 8px", fontSize: "12px", gap: "4px" }} onClick={() => setSelectedProject(p)}>
+                                  View Tasks
+                                </button>
+                                {session.role === "management" && (
+                                  <button
+                                    className="jd-danger-btn"
+                                    style={{ padding: "4px 8px", fontSize: "12px", border: "1px solid #5c2b2b" }}
+                                    onClick={async () => {
+                                      if (confirm(`Are you sure you want to permanently delete project "${p}" and all its tasks?`)) {
+                                        await saveTasks(tasks.filter(t => t.project !== p));
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Back Nav and Stats */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+                <button className="jd-icon-btn" onClick={() => setSelectedProject("")} style={{ display: "flex", alignContent: "center", padding: "6px 12px", fontSize: "13px" }}>
+                  ← Back to Projects
+                </button>
+                <h3 style={{ margin: 0, fontFamily: "'Oswald', sans-serif" }}>{selectedProject}</h3>
+              </div>
+
+              {/* Project Stats */}
+              <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                <StatCard label="Tasks" value={projectTasks.filter(t => t.project === selectedProject).length} />
+                <StatCard label="In Progress" value={projectTasks.filter(t => t.project === selectedProject && statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
+                <StatCard label="Completed" value={projectTasks.filter(t => t.project === selectedProject && statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
+              </div>
+
+              {/* Project Tasks Table */}
+              <div className="jd-panel">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+                  <h4 style={{ margin: 0 }}>Project Tasks</h4>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+                    <input
+                      type="text"
+                      className="jd-input"
+                      value={tSearch}
+                      onChange={(e) => setTSearch(e.target.value)}
+                      placeholder="Search by Task No, Location..."
+                      style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
+                    />
+                    <select
+                      className="jd-input"
+                      value={tStatusFilter}
+                      onChange={(e) => setTStatusFilter(e.target.value)}
+                      style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Not Started">Not Started</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                    <select
+                      className="jd-input"
+                      value={tCreatorFilter}
+                      onChange={(e) => setTCreatorFilter(e.target.value)}
+                      style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                    >
+                      <option value="All">All Creators</option>
+                      {creatorNames.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {session.role === "management" && (
+                    <button className="jd-primary-btn" onClick={() => { setFormType("project"); setEditTask(null); setShowForm(true); }}>
+                      <Plus size={14} /> Add Project Task
+                    </button>
+                  )}
+                </div>
+
+                {filteredProjectTasks.length === 0 ? (
+                  <p className="jd-empty-note">No tasks found in this project.</p>
+                ) : (
+                  <table className="jd-table jd-table-click">
+                    <thead>
+                      <tr>
+                        <th>Task No</th>
+                        <th>Location</th>
+                        <th>Assignee</th>
+                        <th>Start Date</th>
+                        <th>Days</th>
+                        <th>Progress</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProjectTasks.map((t) => {
+                        const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                        return (
+                          <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
+                            <td><strong>{t.task}</strong></td>
+                            <td>{t.location || "—"}</td>
+                            <td>{t.assigneeName || "—"}</td>
+                            <td className="jd-mono">{fmt(t.startDate)}</td>
+                            <td>{t.daysRequired || "—"}</td>
+                            <td><ProgressBar value={t.progress} /></td>
+                            <td>
+                              <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
+                                {statusOf(t.progress)}
+                              </span>
+                            </td>
+                            <td>{t.createdBy}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
+        </main>
+      )}
+
       {view === "users" && session.role === "management" && (
         <UserManagementPanel users={users} session={session} onSaveUsers={saveUsers} />
       )}
@@ -628,9 +1394,10 @@ export default function App() {
       {(showForm || editTask) && (
         <TaskFormModal
           initial={editTask}
-          tasks={tasks}
-          projectNames={projectNames}
+          defaultType={formType}
+          defaultProject={selectedProject}
           assigneeNames={assigneeNames}
+          userNames={users.map((u) => u.username)}
           readOnly={session.role !== "management"}
           onClose={() => { setShowForm(false); setEditTask(null); }}
           onSave={upsertTask}
@@ -638,7 +1405,102 @@ export default function App() {
           onQuickProgress={editTask && session.role === "management" ? (p) => quickProgress(editTask.id, p) : null}
         />
       )}
+
+      {showProjectForm && (
+        <ProjectFormModal
+          onClose={() => setShowProjectForm(false)}
+          assigneeNames={assigneeNames}
+          userNames={users.map((u) => u.username)}
+          tasks={tasks}
+          onSave={async (taskData) => {
+            const now = new Date().toISOString();
+            const nextList = [
+              {
+                id: nextId(),
+                ...taskData,
+                createdBy: session.name,
+                createdAt: now,
+                updatedAt: now,
+              },
+              ...tasks,
+            ];
+            await saveTasks(nextList);
+            setSelectedProject(taskData.project);
+            setShowProjectForm(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ProjectStatusCircle({ notStarted = 0, inProgress = 0, completed = 0 }) {
+  const total = notStarted + inProgress + completed;
+  if (total === 0) {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" style={{ display: "block" }}>
+        <circle cx="12" cy="12" r="8" fill="none" stroke="#343941" strokeWidth="4" />
+      </svg>
+    );
+  }
+
+  const r = 8;
+  const cx = 12;
+  const cy = 12;
+  const circumference = 2 * Math.PI * r;
+
+  const pctC = completed / total;
+  const pctIP = inProgress / total;
+  const pctNS = notStarted / total;
+
+  const strokeC = circumference * pctC;
+  const offsetC = 0;
+
+  const strokeIP = circumference * pctIP;
+  const offsetIP = strokeC;
+
+  const strokeNS = circumference * pctNS;
+  const offsetNS = strokeC + strokeIP;
+
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" style={{ transform: "rotate(-90deg)", display: "block" }}>
+      {pctC > 0 && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="#3da35d"
+          strokeWidth="5"
+          strokeDasharray={`${strokeC} ${circumference}`}
+          strokeDashoffset={-offsetC}
+        />
+      )}
+      {pctIP > 0 && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="#F26430"
+          strokeWidth="5"
+          strokeDasharray={`${strokeIP} ${circumference}`}
+          strokeDashoffset={-offsetIP}
+        />
+      )}
+      {pctNS > 0 && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="#ff6b6b"
+          strokeWidth="5"
+          strokeDasharray={`${strokeNS} ${circumference}`}
+          strokeDashoffset={-offsetNS}
+        />
+      )}
+    </svg>
   );
 }
 
@@ -738,13 +1600,13 @@ function Login({ users, onLogin, onResetPassword }) {
 
   if (mode === "forgot") {
     return (
-      <div className="jd-app jd-login-screen">
+      <div className="jd-app jd-login-screen" style={{ backgroundImage: `url(${loginBanner})` }}>
         <style>{CSS}</style>
         <form className="jd-login-card" onSubmit={handleReset}>
-          <div className="jd-brand jd-login-brand">
-            <LayoutGrid size={26} />
-            <div>
-              <div className="jd-brand-title">RMP PROJECT MANAGEMENT SYSTEM</div>
+          <div className="jd-brand jd-login-brand-col">
+            <img src={logo} alt="RMP Logo" className="jd-login-logo" />
+            <div style={{ textAlign: "center" }}>
+              <div className="jd-brand-title" style={{ fontSize: "18px" }}>RMP ENGINEERING SYSTEM</div>
               <div className="jd-brand-sub">Reset Password</div>
             </div>
           </div>
@@ -775,14 +1637,14 @@ function Login({ users, onLogin, onResetPassword }) {
   }
 
   return (
-    <div className="jd-app jd-login-screen">
+    <div className="jd-app jd-login-screen" style={{ backgroundImage: `url(${loginBanner})` }}>
       <style>{CSS}</style>
       <form className="jd-login-card" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-        <div className="jd-brand jd-login-brand">
-          <LayoutGrid size={26} />
-          <div>
-            <div className="jd-brand-title">RMP PROJECT MANAGEMENT SYSTEM</div>
-            <div className="jd-brand-sub">Job &amp; Task Dashboard</div>
+        <div className="jd-brand jd-login-brand-col">
+          <img src={logo} alt="RMP Logo" className="jd-login-logo" />
+          <div style={{ textAlign: "center" }}>
+            <div className="jd-brand-title" style={{ fontSize: "18px" }}>RMP ENGINEERING SYSTEM</div>
+            <div className="jd-brand-sub">Maintainance &amp; Project Dashboard</div>
           </div>
         </div>
 
@@ -824,11 +1686,27 @@ function Login({ users, onLogin, onResetPassword }) {
   );
 }
 
-function TaskFormModal({ initial, tasks, projectNames, assigneeNames, readOnly, onClose, onSave, onDelete, onQuickProgress }) {
-  const [project, setProject] = useState(initial?.project || "");
-  const [projectToken, setProjectToken] = useState(initial?.projectToken || "");
+function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, userNames, readOnly, onClose, onSave, onDelete, onQuickProgress }) {
+  const isMaintenance = initial ? (initial.projectToken === "maintenance") : (defaultType === "maintenance");
+
+  const [selectedNameOption, setSelectedNameOption] = useState(() => {
+    const val = initial?.project || "";
+    if (DEFAULT_NAMES.includes(val)) {
+      return val;
+    }
+    if (!val) {
+      return DEFAULT_NAMES[0];
+    }
+    return "__custom__";
+  });
+  const [customNameInput, setCustomNameInput] = useState(() => {
+    const val = initial?.project || "";
+    return DEFAULT_NAMES.includes(val) ? "" : val;
+  });
+
   const [task, setTask] = useState(initial?.task || "");
-  const [assignee, setAssignee] = useState(initial?.assignee || "");
+  const [location, setLocation] = useState(initial?.location || "");
+  const [assigneeName, setAssigneeName] = useState(initial?.assigneeName || "");
   const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
   const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
   const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
@@ -836,22 +1714,31 @@ function TaskFormModal({ initial, tasks, projectNames, assigneeNames, readOnly, 
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
-  useEffect(() => {
-    if (!initial && project.trim() && tasks) {
-      const match = tasks.find(
-        (t) => t.project && t.project.trim().toLowerCase() === project.trim().toLowerCase() && t.projectToken
-      );
-      if (match) {
-        setProjectToken(match.projectToken);
-      }
-    }
-  }, [project, tasks, initial]);
-
   function submit() {
     if (readOnly) return;
-    if (!project.trim() || !task.trim()) return;
+    if (!task.trim()) {
+      alert("Please enter a Task No.");
+      return;
+    }
+    const finalProject = isMaintenance
+      ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
+      : (initial?.project || defaultProject || "");
+    if (!finalProject) {
+      alert("Please select or enter a name.");
+      return;
+    }
     onSave(
-      { project: project.trim(), projectToken: projectToken.trim(), task: task.trim(), assignee: assignee.trim(), startDate, daysRequired: Number(daysRequired) || 0, endDateOverride, progress: Number(progress) },
+      {
+        project: finalProject,
+        projectToken: isMaintenance ? "maintenance" : "project",
+        task: task.trim(),
+        location: location.trim(),
+        assigneeName: assigneeName.trim(),
+        startDate,
+        daysRequired: Number(daysRequired) || 0,
+        endDateOverride,
+        progress: Number(progress)
+      },
       initial?.id
     );
   }
@@ -860,23 +1747,57 @@ function TaskFormModal({ initial, tasks, projectNames, assigneeNames, readOnly, 
     <div className="jd-modal-overlay" onClick={onClose}>
       <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="jd-modal-head">
-          <h3>{initial ? (readOnly ? `View ${initial.id}` : `Edit ${initial.id}`) : "Add task"}</h3>
+          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (isMaintenance ? "Add Maintenance Task" : `Add Task under ${defaultProject}`)}</h3>
           <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <label className="jd-field-label">Project</label>
-        <input className="jd-input" list="jd-projects" value={project} onChange={(e) => setProject(e.target.value)} placeholder="e.g. New Oil Mill Cutter" disabled={readOnly} />
-        <datalist id="jd-projects">{projectNames.map((p) => <option key={p} value={p} />)}</datalist>
+        {isMaintenance ? (
+          <>
+            <label className="jd-field-label">Name</label>
+            {readOnly ? (
+              <input className="jd-input" value={initial?.project || ""} disabled={true} />
+            ) : (
+              <>
+                <select
+                  className="jd-input"
+                  value={selectedNameOption}
+                  onChange={(e) => setSelectedNameOption(e.target.value)}
+                >
+                  {DEFAULT_NAMES.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                  <option value="__custom__">Custom Name...</option>
+                </select>
+                {selectedNameOption === "__custom__" && (
+                  <input
+                    type="text"
+                    className="jd-input"
+                    value={customNameInput}
+                    onChange={(e) => setCustomNameInput(e.target.value)}
+                    placeholder="Enter custom maintenance name"
+                    style={{ marginTop: "8px" }}
+                  />
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="jd-field-label">Project</label>
+            <input className="jd-input" value={initial?.project || defaultProject} disabled={true} />
+          </>
+        )}
 
-        <label className="jd-field-label">Project Token</label>
-        <input className="jd-input" value={projectToken} onChange={(e) => setProjectToken(e.target.value)} placeholder="e.g. PRJ-2026-X" disabled={readOnly} />
+        <label className="jd-field-label">Task No</label>
+        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
 
-        <label className="jd-field-label">Task</label>
-        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. Cutter Fabrication" disabled={readOnly} />
+        <label className="jd-field-label">Location</label>
+        <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
+        <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
 
         <label className="jd-field-label">Assignee</label>
-        <input className="jd-input" list="jd-assignees" value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="e.g. Asela / Engineering" disabled={readOnly} />
-        <datalist id="jd-assignees">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
+        <input className="jd-input" list="jd-assignees" value={assigneeName} onChange={(e) => setAssigneeName(e.target.value)} placeholder="e.g. Lakshan" disabled={readOnly} />
+        <datalist id="jd-assignees">{userNames.map((u) => <option key={u} value={u} />)}</datalist>
 
         <div className="jd-form-row">
           <div>
@@ -913,6 +1834,124 @@ function TaskFormModal({ initial, tasks, projectNames, assigneeNames, readOnly, 
               <button type="submit" className="jd-primary-btn">{initial ? "Save changes" : "Add task"}</button>
             </>
           )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks }) {
+  const [selectedNameOption, setSelectedNameOption] = useState(DEFAULT_NAMES[0]);
+  const [customNameInput, setCustomNameInput] = useState("");
+  const [task, setTask] = useState("");
+  const [location, setLocation] = useState("");
+  const [assigneeName, setAssigneeName] = useState("");
+  const [startDate, setStartDate] = useState(todayStr());
+  const [daysRequired, setDaysRequired] = useState("");
+  const [endDateOverride, setEndDateOverride] = useState("");
+  const [progress, setProgress] = useState(0);
+
+  const computedEnd = endDateOverride || addDays(startDate, daysRequired);
+
+  function submit() {
+    const finalName = selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption;
+    if (!finalName) {
+      alert("Please select or enter a project name.");
+      return;
+    }
+    const exists = tasks.some(
+      (t) => t.projectToken !== "maintenance" && t.project && t.project.toLowerCase() === finalName.toLowerCase()
+    );
+    if (exists) {
+      alert("Project already exists! If you want to add a task to it, please select the project and click 'Add Project Task'.");
+      return;
+    }
+    if (!task.trim()) {
+      alert("Please enter a Task No.");
+      return;
+    }
+
+    onSave({
+      project: finalName,
+      projectToken: "project",
+      task: task.trim(),
+      location: location.trim(),
+      assigneeName: assigneeName.trim(),
+      startDate,
+      daysRequired: Number(daysRequired) || 0,
+      endDateOverride,
+      progress: Number(progress)
+    });
+  }
+
+  return (
+    <div className="jd-modal-overlay" onClick={onClose}>
+      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <div className="jd-modal-head">
+          <h3>Create New Project</h3>
+          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <label className="jd-field-label">Project Name</label>
+        <select
+          className="jd-input"
+          value={selectedNameOption}
+          onChange={(e) => setSelectedNameOption(e.target.value)}
+        >
+          {DEFAULT_NAMES.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+          <option value="__custom__">Custom Name...</option>
+        </select>
+
+        {selectedNameOption === "__custom__" && (
+          <input
+            type="text"
+            className="jd-input"
+            value={customNameInput}
+            onChange={(e) => setCustomNameInput(e.target.value)}
+            placeholder="Enter custom project name"
+            style={{ marginTop: "8px" }}
+            autoFocus
+          />
+        )}
+
+        <label className="jd-field-label">Task No (First Task)</label>
+        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" />
+
+        <label className="jd-field-label">Location</label>
+        <input className="jd-input" list="jd-proj-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" />
+        <datalist id="jd-proj-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
+
+        <label className="jd-field-label">Assignee</label>
+        <input className="jd-input" list="jd-proj-assignees" value={assigneeName} onChange={(e) => setAssigneeName(e.target.value)} placeholder="e.g. Lakshan" />
+        <datalist id="jd-proj-assignees">{userNames.map((u) => <option key={u} value={u} />)}</datalist>
+
+        <div className="jd-form-row">
+          <div>
+            <label className="jd-field-label"><Calendar size={12} /> Start date</label>
+            <input type="date" className="jd-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="jd-field-label">Days required</label>
+            <input type="number" min="0" className="jd-input" value={daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" />
+          </div>
+        </div>
+
+        <label className="jd-field-label">End date {daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
+        <input type="date" className="jd-input" value={computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} />
+
+        <label className="jd-field-label">Progress: {progress}%</label>
+        <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" />
+        <div className="jd-quick-row">
+          {[0, 25, 50, 75, 100].map((p) => (
+            <button type="button" key={p} className="jd-chip-btn" onClick={() => setProgress(p)}>{p}%</button>
+          ))}
+        </div>
+
+        <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
+          <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="jd-primary-btn">Create Project</button>
         </div>
       </form>
     </div>
@@ -1056,7 +2095,10 @@ html, body {
 .jd-loading { display:flex; align-items:center; justify-content:center; height:100vh; color:var(--text-dim); font-family:'JetBrains Mono', monospace; }
 
 .jd-header { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid var(--border); background:var(--panel); }
-.jd-brand { display:flex; align-items:center; gap:10px; color:var(--accent); }
+.jd-brand { display:flex; align-items:center; gap:12px; color:var(--accent); }
+.jd-header-logo { height: 32px; border-radius: 4px; object-fit: contain; }
+.jd-login-logo { height: 60px; border-radius: 8px; object-fit: contain; margin-bottom: 4px; }
+.jd-login-brand-col { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--accent); justify-content: center; margin-bottom: 14px; }
 .jd-brand-title { font-family:'Oswald', sans-serif; font-size:16px; font-weight:700; letter-spacing:0.06em; color:var(--text); }
 .jd-brand-sub { font-size:11px; color:var(--text-dim); margin-top:2px; }
 .jd-user { display:flex; align-items:center; gap:12px; }
@@ -1069,6 +2111,8 @@ html, body {
 .jd-tabs button { display:flex; align-items:center; gap:6px; background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:8px 14px; border-radius:7px; cursor:pointer; font-size:13px; }
 .jd-tabs button.active { background:var(--panel-2); color:var(--text); border-color:var(--text-dim); }
 .jd-tabs-add { margin-left:auto; }
+.jd-hamburger { display: none; }
+.jd-mobile-menu-overlay { display: none; }
 
 .jd-primary-btn { display:flex; align-items:center; gap:6px; background:var(--accent); color:#191008; border:none; font-weight:600; font-size:13.5px; padding:9px 16px; border-radius:8px; cursor:pointer; white-space:nowrap; }
 .jd-primary-btn:hover { background:#ff7940; }
@@ -1120,8 +2164,13 @@ html, body {
 .jd-chip-btn:hover { color:var(--text); border-color:var(--accent); }
 .jd-modal-actions { display:flex; justify-content:space-between; align-items:center; margin-top:18px; gap:10px; }
 
-.jd-login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; }
-.jd-login-card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:28px; width:100%; max-width:380px; }
+.jd-projects-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+.jd-project-btn { width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s ease; margin-bottom: 2px; }
+.jd-project-btn:hover { border-color: var(--text-dim); }
+.jd-project-btn.active { background: var(--accent); color: #191008; border-color: var(--accent); font-weight: 600; }
+.jd-login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background-size:cover; background-position:center; background-repeat:no-repeat; padding:20px; position:relative; }
+.jd-login-screen::before { content:""; position:absolute; inset:0; background:rgba(0, 0, 0, 0.15); z-index:1; }
+.jd-login-card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:28px; width:100%; max-width:380px; box-shadow:0 15px 35px rgba(0,0,0,0.6); z-index:2; }
 .jd-login-brand { justify-content:center; margin-bottom:14px; }
 .jd-login-copy { font-size:13px; color:var(--text-dim); line-height:1.5; margin:0 0 6px; }
 .jd-login-tabs { display:flex; gap:8px; margin:16px 0; }
@@ -1135,13 +2184,22 @@ html, body {
 .jd-link-btn:hover { color:#fff; }
 
 @media (max-width: 768px) {
+  .jd-tabs { display: none !important; }
+  .jd-hamburger { display: flex; }
+  .jd-logout-btn { display: none !important; }
+  .jd-user-name { display: none !important; }
+  .jd-mobile-menu-overlay { display: block; position: fixed; inset: 0; top: 57px; background: rgba(10, 11, 13, 0.72); z-index: 45; }
+  .jd-mobile-menu { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .jd-mobile-menu button { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); padding: 10px 14px; border-radius: 8px; cursor: pointer; text-align: left; font-size: 14px; font-weight: 500; width: 100%; }
+  .jd-mobile-menu button.active { background: var(--accent); color: #191008; border-color: var(--accent); font-weight: 600; }
+  .jd-mobile-menu-logout { border-color: #5c2b2b !important; color: #f2a3a3 !important; }
+
+  .jd-projects-layout { grid-template-columns: 1fr; }
   .jd-stats { grid-template-columns: repeat(3, 1fr); }
   .jd-charts { grid-template-columns: 1fr; }
   .jd-two-col { grid-template-columns: 1fr; }
-  .jd-header { padding: 12px 16px; flex-direction: column; gap: 10px; align-items: flex-start; }
-  .jd-user { width: 100%; justify-content: space-between; }
-  .jd-tabs { padding: 12px 16px; flex-wrap: wrap; }
-  .jd-tabs-add { margin-left: 0; width: 100%; justify-content: center; }
+  .jd-header { padding: 12px 16px; flex-direction: row; gap: 10px; align-items: center; justify-content: space-between; }
+  .jd-user { justify-content: flex-end; }
   .jd-main { padding: 16px 16px 30px; gap: 14px; }
   .jd-filters { flex-direction: column; gap: 8px; }
 }
