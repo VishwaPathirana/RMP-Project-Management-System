@@ -26,6 +26,15 @@ const CHART_COLORS = [
   "#2980B9", // Medium Blue
 ];
 
+const ASSIGNEE_CHART_COLORS = [
+  "#F59E0B", // Amber
+  "#10B981", // Emerald
+  "#EC4899", // Pink
+  "#6366F1", // Indigo
+  "#14B8A6", // Teal
+  "#EF4444", // Red
+];
+
 const DEFAULT_NAMES = [
   "WASTE WATER/CANTEEN/OTHERS",
   "MILK SECTION",
@@ -901,7 +910,7 @@ export default function App() {
                       stroke="none"
                     >
                       {mByAssignee.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={ASSIGNEE_CHART_COLORS[index % ASSIGNEE_CHART_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
