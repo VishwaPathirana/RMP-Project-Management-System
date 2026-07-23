@@ -49,6 +49,20 @@ const DEFAULT_NAMES = [
   "Mill Garden"
 ];
 
+const DEFAULT_ASSIGNEES = [
+  "LIYANAGE",
+  "INDIKA",
+  "ANANDA",
+  "NISHANTHA",
+  "MAHINDA/PALITHA",
+  "NIMESH/KAMAL",
+  "UMESH",
+  "ALL TEAM",
+  "SS Contractor",
+  "Outsource",
+  "JANITH"
+];
+
 function statusOf(progress) {
   if (progress >= 100) return "Completed";
   if (progress > 0) return "In Progress";
@@ -475,39 +489,45 @@ export default function App() {
     const today = todayStr();
     const map = {};
     maintenanceTasks.forEach((t) => {
-      const origKey = (t.assigneeName || "Unassigned").trim();
-      const lowerKey = origKey.toLowerCase();
-      if (!map[lowerKey]) {
-        map[lowerKey] = {
-          assignee: origKey,
-          tasks: 0,
-          completed: 0,
-          inProgress: 0,
-          notStarted: 0,
-          overdue: 0,
-          days: 0,
-          progressSum: 0
-        };
-      }
+      const assignees = t.assigneeName
+        ? t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean)
+        : ["Unassigned"];
 
-      const daysVal = Number(t.daysRequired);
-      const progVal = Number(t.progress) || 0;
+      assignees.forEach((assignee) => {
+        const origKey = assignee;
+        const lowerKey = origKey.toLowerCase();
+        if (!map[lowerKey]) {
+          map[lowerKey] = {
+            assignee: origKey,
+            tasks: 0,
+            completed: 0,
+            inProgress: 0,
+            notStarted: 0,
+            overdue: 0,
+            days: 0,
+            progressSum: 0
+          };
+        }
 
-      map[lowerKey].tasks++;
-      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
-      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
+        const daysVal = Number(t.daysRequired);
+        const progVal = Number(t.progress) || 0;
 
-      if (progVal === 100) {
-        map[lowerKey].completed++;
-      } else if (progVal > 0) {
-        map[lowerKey].inProgress++;
-      } else {
-        map[lowerKey].notStarted++;
-      }
+        map[lowerKey].tasks++;
+        map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+        map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
 
-      if (t.endDate && t.endDate < today && progVal < 100) {
-        map[lowerKey].overdue++;
-      }
+        if (progVal === 100) {
+          map[lowerKey].completed++;
+        } else if (progVal > 0) {
+          map[lowerKey].inProgress++;
+        } else {
+          map[lowerKey].notStarted++;
+        }
+
+        if (t.endDate && t.endDate < today && progVal < 100) {
+          map[lowerKey].overdue++;
+        }
+      });
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
@@ -601,39 +621,45 @@ export default function App() {
     const today = todayStr();
     const map = {};
     projectTasks.forEach((t) => {
-      const origKey = (t.assigneeName || "Unassigned").trim();
-      const lowerKey = origKey.toLowerCase();
-      if (!map[lowerKey]) {
-        map[lowerKey] = {
-          assignee: origKey,
-          tasks: 0,
-          completed: 0,
-          inProgress: 0,
-          notStarted: 0,
-          overdue: 0,
-          days: 0,
-          progressSum: 0
-        };
-      }
+      const assignees = t.assigneeName
+        ? t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean)
+        : ["Unassigned"];
 
-      const daysVal = Number(t.daysRequired);
-      const progVal = Number(t.progress) || 0;
+      assignees.forEach((assignee) => {
+        const origKey = assignee;
+        const lowerKey = origKey.toLowerCase();
+        if (!map[lowerKey]) {
+          map[lowerKey] = {
+            assignee: origKey,
+            tasks: 0,
+            completed: 0,
+            inProgress: 0,
+            notStarted: 0,
+            overdue: 0,
+            days: 0,
+            progressSum: 0
+          };
+        }
 
-      map[lowerKey].tasks++;
-      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
-      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
+        const daysVal = Number(t.daysRequired);
+        const progVal = Number(t.progress) || 0;
 
-      if (progVal === 100) {
-        map[lowerKey].completed++;
-      } else if (progVal > 0) {
-        map[lowerKey].inProgress++;
-      } else {
-        map[lowerKey].notStarted++;
-      }
+        map[lowerKey].tasks++;
+        map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+        map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
 
-      if (t.endDate && t.endDate < today && progVal < 100) {
-        map[lowerKey].overdue++;
-      }
+        if (progVal === 100) {
+          map[lowerKey].completed++;
+        } else if (progVal > 0) {
+          map[lowerKey].inProgress++;
+        } else {
+          map[lowerKey].notStarted++;
+        }
+
+        if (t.endDate && t.endDate < today && progVal < 100) {
+          map[lowerKey].overdue++;
+        }
+      });
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
@@ -1950,6 +1976,99 @@ function PhotoViewerModal({ viewingData, onClose }) {
   );
 }
 
+function AssigneeSelector({ selected, onChange, readOnly }) {
+  const [customInput, setCustomInput] = useState("");
+
+  const toggleAssignee = (name) => {
+    if (readOnly) return;
+    if (selected.includes(name)) {
+      onChange(selected.filter((x) => x !== name));
+    } else {
+      onChange([...selected, name]);
+    }
+  };
+
+  const addCustom = (e) => {
+    if (e) e.preventDefault();
+    if (readOnly) return;
+    const name = customInput.trim();
+    if (!name) return;
+    if (!selected.includes(name)) {
+      onChange([...selected, name]);
+    }
+    setCustomInput("");
+  };
+
+  return (
+    <div className="jd-assignee-selector">
+      <div className="jd-assignee-chips">
+        {selected.map((name) => (
+          <span key={name} className="jd-assignee-chip">
+            {name}
+            {!readOnly && (
+              <button
+                type="button"
+                className="jd-assignee-chip-remove"
+                onClick={() => toggleAssignee(name)}
+              >
+                <X size={10} />
+              </button>
+            )}
+          </span>
+        ))}
+        {selected.length === 0 && (
+          <span className="jd-assignee-empty">No assignees selected</span>
+        )}
+      </div>
+
+      {!readOnly && (
+        <>
+          <div className="jd-assignee-grid">
+            {DEFAULT_ASSIGNEES.map((name) => {
+              const isSelected = selected.includes(name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  className={`jd-assignee-btn ${isSelected ? "selected" : ""}`}
+                  onClick={() => toggleAssignee(name)}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="jd-custom-assignee-input-row" style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <input
+              type="text"
+              className="jd-input"
+              style={{ flex: 1, margin: 0 }}
+              placeholder="Add custom assignee..."
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustom();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="jd-primary-btn"
+              onClick={() => addCustom()}
+              style={{ padding: "8px 12px" }}
+            >
+              Add
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, userNames, readOnly, onClose, onSave, onDelete, onQuickProgress, onPreviewPhoto }) {
   const isMaintenance = initial ? (initial.projectToken === "maintenance") : (defaultType === "maintenance");
 
@@ -1970,7 +2089,10 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
   const [task, setTask] = useState(initial?.task || "");
   const [location, setLocation] = useState(initial?.location || "");
-  const [assigneeName, setAssigneeName] = useState(initial?.assigneeName || "");
+  const [selectedAssignees, setSelectedAssignees] = useState(() => {
+    if (!initial?.assigneeName) return [];
+    return initial.assigneeName.split(",").map(s => s.trim()).filter(Boolean);
+  });
   const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
   const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
   const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
@@ -1999,7 +2121,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         projectToken: isMaintenance ? "maintenance" : "project",
         task: task.trim(),
         location: location.trim(),
-        assigneeName: assigneeName.trim(),
+        assigneeName: selectedAssignees.join(", "),
         startDate,
         daysRequired: Number(daysRequired) || 0,
         endDateOverride,
@@ -2063,8 +2185,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
 
         <label className="jd-field-label">Assignee</label>
-        <input className="jd-input" list="jd-assignees" value={assigneeName} onChange={(e) => setAssigneeName(e.target.value)} placeholder="e.g. Lakshan" disabled={readOnly} />
-        <datalist id="jd-assignees">{userNames.map((u) => <option key={u} value={u} />)}</datalist>
+        <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={readOnly} />
 
         <div className="jd-form-row">
           <div>
@@ -2169,7 +2290,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
   const [customNameInput, setCustomNameInput] = useState("");
   const [task, setTask] = useState("");
   const [location, setLocation] = useState("");
-  const [assigneeName, setAssigneeName] = useState("");
+  const [selectedAssignees, setSelectedAssignees] = useState([]);
   const [startDate, setStartDate] = useState(todayStr());
   const [daysRequired, setDaysRequired] = useState("");
   const [endDateOverride, setEndDateOverride] = useState("");
@@ -2202,7 +2323,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
       projectToken: "project",
       task: task.trim(),
       location: location.trim(),
-      assigneeName: assigneeName.trim(),
+      assigneeName: selectedAssignees.join(", "),
       startDate,
       daysRequired: Number(daysRequired) || 0,
       endDateOverride,
@@ -2251,8 +2372,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
         <datalist id="jd-proj-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
 
         <label className="jd-field-label">Assignee</label>
-        <input className="jd-input" list="jd-proj-assignees" value={assigneeName} onChange={(e) => setAssigneeName(e.target.value)} placeholder="e.g. Lakshan" />
-        <datalist id="jd-proj-assignees">{userNames.map((u) => <option key={u} value={u} />)}</datalist>
+        <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={false} />
 
         <div className="jd-form-row">
           <div>
@@ -2545,6 +2665,16 @@ html, body {
 .jd-chip-btn { flex:1; background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); border-radius:6px; padding:6px 0; cursor:pointer; font-size:12px; }
 .jd-chip-btn:hover { color:var(--text); border-color:var(--accent); }
 .jd-modal-actions { display:flex; justify-content:space-between; align-items:center; margin-top:18px; gap:10px; }
+
+.jd-assignee-selector { display: flex; flex-direction: column; gap: 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.jd-assignee-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; align-items: center; }
+.jd-assignee-chip { display: flex; align-items: center; gap: 6px; background: var(--accent); color: #191008; font-weight: 600; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; }
+.jd-assignee-chip-remove { background: none; border: none; color: #191008; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.jd-assignee-empty { font-size: 12px; color: var(--text-dim); font-style: italic; }
+.jd-assignee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 6px; max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--panel); }
+.jd-assignee-btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); padding: 6px 4px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 500; text-align: center; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jd-assignee-btn:hover { border-color: var(--text-dim); color: var(--text); }
+.jd-assignee-btn.selected { background: color-mix(in srgb, var(--accent) 25%, transparent); border-color: var(--accent); color: var(--text); font-weight: 600; }
 
 .jd-projects-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
 .jd-project-btn { width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s ease; margin-bottom: 2px; }
