@@ -1225,7 +1225,8 @@ export default function App() {
             {filteredMaintenanceTasks.length === 0 ? (
               <p className="jd-empty-note">No maintenance tasks found.</p>
             ) : (
-              <table className="jd-table jd-table-click">
+              <div style={{ overflowX: "auto", width: "100%" }}>
+                <table className="jd-table jd-table-click" style={{ minWidth: "1100px" }}>
                 <thead>
                   <tr>
                     <th>Task No</th>
@@ -1290,6 +1291,7 @@ export default function App() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </main>
@@ -1498,7 +1500,8 @@ export default function App() {
                 {filteredProjectTasks.length === 0 ? (
                   <p className="jd-empty-note">No tasks found in this project.</p>
                 ) : (
-                  <table className="jd-table jd-table-click">
+                  <div style={{ overflowX: "auto", width: "100%" }}>
+                    <table className="jd-table jd-table-click" style={{ minWidth: "1100px" }}>
                     <thead>
                       <tr>
                         <th>Task No</th>
@@ -1561,6 +1564,7 @@ export default function App() {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             </>
