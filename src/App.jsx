@@ -2023,18 +2023,18 @@ function AssigneeSelector({ selected, onChange, readOnly }) {
 
       {!readOnly && (
         <>
-          <div className="jd-assignee-grid">
+          <div className="jd-assignee-list">
             {DEFAULT_ASSIGNEES.map((name) => {
               const isSelected = selected.includes(name);
               return (
-                <button
-                  key={name}
-                  type="button"
-                  className={`jd-assignee-btn ${isSelected ? "selected" : ""}`}
-                  onClick={() => toggleAssignee(name)}
-                >
-                  {name}
-                </button>
+                <label key={name} className="jd-assignee-list-item">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleAssignee(name)}
+                  />
+                  <span>{name}</span>
+                </label>
               );
             })}
           </div>
@@ -2671,10 +2671,10 @@ html, body {
 .jd-assignee-chip { display: flex; align-items: center; gap: 6px; background: var(--accent); color: #191008; font-weight: 600; font-size: 11.5px; padding: 4px 8px; border-radius: 6px; }
 .jd-assignee-chip-remove { background: none; border: none; color: #191008; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
 .jd-assignee-empty { font-size: 12px; color: var(--text-dim); font-style: italic; }
-.jd-assignee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 6px; max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--panel); }
-.jd-assignee-btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); padding: 6px 4px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 500; text-align: center; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jd-assignee-btn:hover { border-color: var(--text-dim); color: var(--text); }
-.jd-assignee-btn.selected { background: color-mix(in srgb, var(--accent) 25%, transparent); border-color: var(--accent); color: var(--text); font-weight: 600; }
+.jd-assignee-list { display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--panel); }
+.jd-assignee-list-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; color: var(--text-dim); padding: 4px; user-select: none; }
+.jd-assignee-list-item:hover { color: var(--text); }
+.jd-assignee-list-item input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; margin: 0; }
 
 .jd-projects-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
 .jd-project-btn { width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s ease; margin-bottom: 2px; }
