@@ -900,7 +900,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -914,7 +914,7 @@ export default function App() {
                     <CartesianGrid stroke="#343941" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
                     <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
                     <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
                       {mByTaskName.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -943,7 +943,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={ASSIGNEE_CHART_COLORS[index % ASSIGNEE_CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -1046,7 +1046,7 @@ export default function App() {
                     <CartesianGrid stroke="#343941" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
                     <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
                     <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
                       {byProject.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -1075,7 +1075,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
