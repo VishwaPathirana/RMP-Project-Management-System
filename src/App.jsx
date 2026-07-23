@@ -180,11 +180,11 @@ export default function App() {
     }
   }
 
-  // Initial load: session from localStorage (per-device, not shared), users from Supabase
+  // Initial load: session from sessionStorage (per-device, not shared), users from Supabase
   useEffect(() => {
     (async () => {
       try {
-        const s = localStorage.getItem("session");
+        const s = sessionStorage.getItem("session");
         if (s) setSession(JSON.parse(s));
       } catch (e) { }
 
@@ -312,14 +312,14 @@ export default function App() {
     setSession(s);
     setView("m-dashboard");
     try {
-      localStorage.setItem("session", JSON.stringify(s));
+      sessionStorage.setItem("session", JSON.stringify(s));
     } catch (e) { }
   }
   async function handleLogout() {
     setSession(null);
     setView("m-dashboard");
     try {
-      localStorage.removeItem("session");
+      sessionStorage.removeItem("session");
     } catch (e) { }
   }
 
