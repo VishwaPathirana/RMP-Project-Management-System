@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -102,6 +102,7 @@ export default function App() {
   const [pCreatorFilter, setPCreatorFilter] = useState("All");
   const [tCreatorFilter, setTCreatorFilter] = useState("All");
   const [err, setErr] = useState("");
+  const [viewingPhotos, setViewingPhotos] = useState(null);
 
   // Fetch tasks from Supabase
   async function fetchTasks() {
@@ -114,10 +115,18 @@ export default function App() {
       const parsed = (data || []).map((t) => {
         let location = "";
         let assigneeName = "";
+        let photos = [];
         if (t.assignee && t.assignee.includes(" ||| ")) {
           const parts = t.assignee.split(" ||| ");
-          location = parts[0];
-          assigneeName = parts[1];
+          location = parts[0] || "";
+          assigneeName = parts[1] || "";
+          if (parts[2]) {
+            try {
+              photos = JSON.parse(parts[2]);
+            } catch (e) {
+              photos = [];
+            }
+          }
         } else {
           location = t.assignee || "";
           assigneeName = "";
@@ -126,6 +135,7 @@ export default function App() {
           ...t,
           location,
           assigneeName,
+          photos
         };
       });
       try {
@@ -232,11 +242,12 @@ export default function App() {
       const nextIds = new Set(next.map((t) => t.id));
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
-      // Combine location and assigneeName into assignee column, strip other client-only fields
-      const dbRows = next.map(({ endDateOverride, location, assigneeName, ...row }) => {
+      // Combine location, assigneeName, and photos into assignee column, strip photos and client-only fields from dbRows
+      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, ...row }) => {
+        const photoPayload = photos && photos.length ? JSON.stringify(photos) : "";
         return {
           ...row,
-          assignee: `${location || ""} ||| ${assigneeName || ""}`
+          assignee: `${location || ""} ||| ${assigneeName || ""}${photoPayload ? ` ||| ${photoPayload}` : ""}`
         };
       });
 
@@ -380,9 +391,53 @@ export default function App() {
 
   const maintenanceTasks = useMemo(() => tasks.filter(t => t.projectToken === "maintenance" && t.task !== "__init__"), [tasks]);
   const projectTasks = useMemo(() => tasks.filter(t => t.projectToken !== "maintenance" && t.task !== "__init__"), [tasks]);
-  const projectsList = useMemo(() => Array.from(new Set(tasks.filter(t => t.projectToken !== "maintenance" && t.project).map(t => t.project))), [tasks]);
-  const assigneeNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.location).filter(Boolean))), [tasks]);
-  const creatorNames = useMemo(() => Array.from(new Set(tasks.map((t) => t.createdBy).filter(Boolean))), [tasks]);
+  const projectsList = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    tasks.forEach((t) => {
+      if (t.projectToken !== "maintenance" && t.project) {
+        const val = t.project.trim();
+        const lower = val.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push(val);
+        }
+      }
+    });
+    return list;
+  }, [tasks]);
+
+  const assigneeNames = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    tasks.forEach((t) => {
+      if (t.location) {
+        const val = t.location.trim();
+        const lower = val.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push(val);
+        }
+      }
+    });
+    return list;
+  }, [tasks]);
+
+  const creatorNames = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    tasks.forEach((t) => {
+      if (t.createdBy) {
+        const val = t.createdBy.trim();
+        const lower = val.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push(val);
+        }
+      }
+    });
+    return list;
+  }, [tasks]);
 
   const mTotals = useMemo(() => {
     const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
@@ -411,10 +466,11 @@ export default function App() {
     const today = todayStr();
     const map = {};
     maintenanceTasks.forEach((t) => {
-      const key = t.assigneeName || "Unassigned";
-      if (!map[key]) {
-        map[key] = {
-          assignee: key,
+      const origKey = (t.assigneeName || "Unassigned").trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) {
+        map[lowerKey] = {
+          assignee: origKey,
           tasks: 0,
           completed: 0,
           inProgress: 0,
@@ -428,20 +484,20 @@ export default function App() {
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress) || 0;
 
-      map[key].tasks++;
-      map[key].days += isNaN(daysVal) ? 0 : daysVal;
-      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
 
       if (progVal === 100) {
-        map[key].completed++;
+        map[lowerKey].completed++;
       } else if (progVal > 0) {
-        map[key].inProgress++;
+        map[lowerKey].inProgress++;
       } else {
-        map[key].notStarted++;
+        map[lowerKey].notStarted++;
       }
 
       if (t.endDate && t.endDate < today && progVal < 100) {
-        map[key].overdue++;
+        map[lowerKey].overdue++;
       }
     });
     return Object.values(map).map((p) => {
@@ -457,15 +513,23 @@ export default function App() {
     const map = {};
     maintenanceTasks.forEach((t) => {
       if (!t.project) return;
-      const key = t.project;
-      if (!map[key]) map[key] = { displayName: key, tasks: 0, days: 0, progressSum: 0 };
+      const origKey = t.project.trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) {
+        map[lowerKey] = {
+          displayName: origKey,
+          tasks: 0,
+          days: 0,
+          progressSum: 0
+        };
+      }
 
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress);
 
-      map[key].tasks++;
-      map[key].days += isNaN(daysVal) ? 0 : daysVal;
-      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
@@ -480,15 +544,16 @@ export default function App() {
     const map = {};
     maintenanceTasks.forEach((t) => {
       if (!t.createdBy) return;
-      const key = t.createdBy;
-      if (!map[key]) map[key] = { creator: key, tasks: 0, days: 0, progressSum: 0 };
+      const origKey = t.createdBy.trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) map[lowerKey] = { creator: origKey, tasks: 0, days: 0, progressSum: 0 };
 
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress);
 
-      map[key].tasks++;
-      map[key].days += isNaN(daysVal) ? 0 : daysVal;
-      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
@@ -527,10 +592,11 @@ export default function App() {
     const today = todayStr();
     const map = {};
     projectTasks.forEach((t) => {
-      const key = t.assigneeName || "Unassigned";
-      if (!map[key]) {
-        map[key] = {
-          assignee: key,
+      const origKey = (t.assigneeName || "Unassigned").trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) {
+        map[lowerKey] = {
+          assignee: origKey,
           tasks: 0,
           completed: 0,
           inProgress: 0,
@@ -544,20 +610,20 @@ export default function App() {
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress) || 0;
 
-      map[key].tasks++;
-      map[key].days += isNaN(daysVal) ? 0 : daysVal;
-      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
 
       if (progVal === 100) {
-        map[key].completed++;
+        map[lowerKey].completed++;
       } else if (progVal > 0) {
-        map[key].inProgress++;
+        map[lowerKey].inProgress++;
       } else {
-        map[key].notStarted++;
+        map[lowerKey].notStarted++;
       }
 
       if (t.endDate && t.endDate < today && progVal < 100) {
-        map[key].overdue++;
+        map[lowerKey].overdue++;
       }
     });
     return Object.values(map).map((p) => {
@@ -573,10 +639,11 @@ export default function App() {
     const map = {};
     projectTasks.forEach((t) => {
       if (!t.project) return;
-      const key = t.project;
-      if (!map[key]) {
-        map[key] = {
-          project: key,
+      const origKey = t.project.trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) {
+        map[lowerKey] = {
+          project: origKey,
           token: t.projectToken || "",
           tasks: 0,
           days: 0,
@@ -588,10 +655,10 @@ export default function App() {
       const daysVal = Number(t.daysRequired);
       const progVal = Number(t.progress);
 
-      map[key].tasks++;
-      map[key].days += isNaN(daysVal) ? 0 : daysVal;
-      map[key].progressSum += isNaN(progVal) ? 0 : progVal;
-      map[key].statusCounts[statusOf(progVal)]++;
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].statusCounts[statusOf(progVal)]++;
     });
     return Object.values(map).map((p) => {
       const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
@@ -609,7 +676,7 @@ export default function App() {
       list = list.filter(t => statusOf(t.progress) === mStatusFilter);
     }
     if (mCreatorFilter !== "All") {
-      list = list.filter(t => t.createdBy === mCreatorFilter);
+      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === mCreatorFilter.toLowerCase());
     }
     if (mSearch.trim()) {
       const q = mSearch.toLowerCase().trim();
@@ -627,7 +694,7 @@ export default function App() {
     let list = projectsList;
     if (pStatusFilter !== "All") {
       list = list.filter(p => {
-        const tasksInP = projectTasks.filter(t => t.project === p);
+        const tasksInP = projectTasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
         const avg = tasksInP.length ? Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length) : 0;
         const status = avg >= 100 ? "Completed" : avg > 0 ? "In Progress" : "Not Started";
         return status === pStatusFilter;
@@ -635,8 +702,8 @@ export default function App() {
     }
     if (pCreatorFilter !== "All") {
       list = list.filter(p => {
-        const tasksInP = tasks.filter(t => t.project === p);
-        return tasksInP.some(t => t.createdBy === pCreatorFilter);
+        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        return tasksInP.some(t => t.createdBy && t.createdBy.toLowerCase() === pCreatorFilter.toLowerCase());
       });
     }
     if (pSearch.trim()) {
@@ -647,12 +714,12 @@ export default function App() {
   }, [projectsList, pSearch, pStatusFilter, pCreatorFilter, projectTasks, tasks]);
 
   const filteredProjectTasks = useMemo(() => {
-    let list = projectTasks.filter(t => t.project === selectedProject);
+    let list = projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase());
     if (tStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress) === tStatusFilter);
     }
     if (tCreatorFilter !== "All") {
-      list = list.filter(t => t.createdBy === tCreatorFilter);
+      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === tCreatorFilter.toLowerCase());
     }
     if (tSearch.trim()) {
       const q = tSearch.toLowerCase().trim();
@@ -818,6 +885,30 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            <div className="jd-panel">
+              <h4>Tasks by Assignee</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={mByAssignee}
+                      dataKey="tasks"
+                      nameKey="assignee"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {mByAssignee.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
 
           <div className="jd-panel">
@@ -852,8 +943,10 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Assignee</th>
-                    <th>Tasks</th>
-                    <th>Task Breakdown</th>
+                    <th>All</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Overdue</th>
                     <th>Days engaged</th>
                     <th>Avg progress</th>
                   </tr>
@@ -862,19 +955,10 @@ export default function App() {
                   {mByAssignee.map((p) => (
                     <tr key={p.assignee}>
                       <td><strong>{p.assignee}</strong></td>
-                      <td>{p.tasks}</td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <ProjectStatusCircle
-                            notStarted={p.notStarted}
-                            inProgress={p.inProgress}
-                            completed={p.completed}
-                          />
-                          <span style={{ fontSize: "11.5px", color: "#9BA1AA" }}>
-                            {p.completed} / {p.inProgress} / {p.notStarted}
-                          </span>
-                        </div>
-                      </td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
@@ -915,6 +999,25 @@ export default function App() {
           </div>
 
           <div className="jd-charts">
+            <div className="jd-panel jd-panel-wide">
+              <h4>Average progress by project</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={byProject} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid stroke="#343941" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
+                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                      {byProject.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
             <div className="jd-panel">
               <h4>Tasks by Project</h4>
               <div style={{ position: "relative", width: "100%", height: "210px" }}>
@@ -935,25 +1038,6 @@ export default function App() {
                     </Pie>
                     <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
                   </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="jd-panel jd-panel-wide">
-              <h4>Average progress by project</h4>
-              <div style={{ position: "relative", width: "100%", height: "210px" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byProject} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke="#343941" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} />
-                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
-                      {byProject.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -1019,8 +1103,10 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Assignee</th>
-                    <th>Tasks</th>
-                    <th>Task Breakdown</th>
+                    <th>All</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Overdue</th>
                     <th>Days engaged</th>
                     <th>Avg progress</th>
                   </tr>
@@ -1029,19 +1115,10 @@ export default function App() {
                   {pByAssignee.map((p) => (
                     <tr key={p.assignee}>
                       <td><strong>{p.assignee}</strong></td>
-                      <td>{p.tasks}</td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <ProjectStatusCircle
-                            notStarted={p.notStarted}
-                            inProgress={p.inProgress}
-                            completed={p.completed}
-                          />
-                          <span style={{ fontSize: "11.5px", color: "#9BA1AA" }}>
-                            {p.completed} / {p.inProgress} / {p.notStarted}
-                          </span>
-                        </div>
-                      </td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
                       <td>{p.days}</td>
                       <td><ProgressBar value={p.avgProgress} /></td>
                     </tr>
@@ -1055,9 +1132,10 @@ export default function App() {
 
       {view === "maintenance" && (
         <main className="jd-main">
-          {/* Maintenance Stats */}
-          <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div className="jd-stats">
             <StatCard label="Total Maintenance Tasks" value={maintenanceTasks.length} />
+            <StatCard label="Days Scope" value={maintenanceTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
+            <StatCard label="Not Started" value={maintenanceTasks.filter(t => statusOf(t.progress) === "Not Started").length} color={STATUS_COLOR["Not Started"]} />
             <StatCard label="In Progress" value={maintenanceTasks.filter(t => statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
             <StatCard label="Completed" value={maintenanceTasks.filter(t => statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
           </div>
@@ -1118,12 +1196,14 @@ export default function App() {
                     <th>Days</th>
                     <th>Progress</th>
                     <th>Status</th>
+                    <th>Photos</th>
                     <th>Created By</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMaintenanceTasks.map((t) => {
                     const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                    const taskPhotos = t.photos || [];
                     return (
                       <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
                         <td><strong>{t.task}</strong></td>
@@ -1137,6 +1217,30 @@ export default function App() {
                           <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
                             {statusOf(t.progress)}
                           </span>
+                        </td>
+                        <td>
+                          {taskPhotos.length > 0 ? (
+                            <div
+                              style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingPhotos({ title: `${t.task} — ${t.project || "Maintenance"}`, photos: taskPhotos });
+                              }}
+                            >
+                              <img
+                                src={taskPhotos[0]}
+                                alt="Thumbnail"
+                                style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
+                              />
+                              {taskPhotos.length > 1 && (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                  +{taskPhotos.length - 1}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                          )}
                         </td>
                         <td>{t.createdBy}</td>
                       </tr>
@@ -1153,21 +1257,12 @@ export default function App() {
         <main className="jd-main">
           {!selectedProject ? (
             <>
-              {/* Projects Overview Stats */}
-              <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+              <div className="jd-stats">
                 <StatCard label="Total Projects" value={projectsList.length} />
-                <StatCard label="In Progress" value={projectsList.filter(p => {
-                  const tasksInP = projectTasks.filter(t => t.project === p);
-                  if (tasksInP.length === 0) return true;
-                  const avg = Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length);
-                  return avg < 100;
-                }).length} color={STATUS_COLOR["In Progress"]} />
-                <StatCard label="Completed" value={projectsList.filter(p => {
-                  const tasksInP = projectTasks.filter(t => t.project === p);
-                  if (tasksInP.length === 0) return false;
-                  const avg = Math.round(tasksInP.reduce((acc, t) => acc + t.progress, 0) / tasksInP.length);
-                  return avg >= 100;
-                }).length} color={STATUS_COLOR.Completed} />
+                <StatCard label="Days Scope" value={projectTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
+                <StatCard label="Not Started" value={projectTasks.filter(t => statusOf(t.progress) === "Not Started").length} color={STATUS_COLOR["Not Started"]} />
+                <StatCard label="In Progress" value={projectTasks.filter(t => statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
+                <StatCard label="Completed" value={projectTasks.filter(t => statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
               </div>
 
               <div className="jd-panel">
@@ -1307,10 +1402,12 @@ export default function App() {
               </div>
 
               {/* Project Stats */}
-              <div className="jd-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                <StatCard label="Tasks" value={projectTasks.filter(t => t.project === selectedProject).length} />
-                <StatCard label="In Progress" value={projectTasks.filter(t => t.project === selectedProject && statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
-                <StatCard label="Completed" value={projectTasks.filter(t => t.project === selectedProject && statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
+              <div className="jd-stats">
+                <StatCard label="Tasks" value={projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase()).length} />
+                <StatCard label="Days Scope" value={projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase()).reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
+                <StatCard label="Not Started" value={projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase() && statusOf(t.progress) === "Not Started").length} color={STATUS_COLOR["Not Started"]} />
+                <StatCard label="In Progress" value={projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase() && statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
+                <StatCard label="Completed" value={projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase() && statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
               </div>
 
               {/* Project Tasks Table */}
@@ -1369,12 +1466,14 @@ export default function App() {
                         <th>Days</th>
                         <th>Progress</th>
                         <th>Status</th>
+                        <th>Photos</th>
                         <th>Created By</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredProjectTasks.map((t) => {
                         const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                        const taskPhotos = t.photos || [];
                         return (
                           <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
                             <td><strong>{t.task}</strong></td>
@@ -1387,6 +1486,30 @@ export default function App() {
                               <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
                                 {statusOf(t.progress)}
                               </span>
+                            </td>
+                            <td>
+                              {taskPhotos.length > 0 ? (
+                                <div
+                                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                                  }}
+                                >
+                                  <img
+                                    src={taskPhotos[0]}
+                                    alt="Thumbnail"
+                                    style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
+                                  />
+                                  {taskPhotos.length > 1 && (
+                                    <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                      +{taskPhotos.length - 1}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                              )}
                             </td>
                             <td>{t.createdBy}</td>
                           </tr>
@@ -1417,6 +1540,7 @@ export default function App() {
           onSave={upsertTask}
           onDelete={editTask && session.role === "management" ? () => deleteTask(editTask.id) : null}
           onQuickProgress={editTask && session.role === "management" ? (p) => quickProgress(editTask.id, p) : null}
+          onPreviewPhoto={(data) => setViewingPhotos(data)}
         />
       )}
 
@@ -1426,6 +1550,7 @@ export default function App() {
           assigneeNames={assigneeNames}
           userNames={users.map((u) => u.username)}
           tasks={tasks}
+          onPreviewPhoto={(data) => setViewingPhotos(data)}
           onSave={async (taskData) => {
             const now = new Date().toISOString();
             const nextList = [
@@ -1444,6 +1569,8 @@ export default function App() {
           }}
         />
       )}
+
+      <PhotoViewerModal viewingData={viewingPhotos} onClose={() => setViewingPhotos(null)} />
     </div>
   );
 }
@@ -1700,7 +1827,121 @@ function Login({ users, onLogin, onResetPassword }) {
   );
 }
 
-function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, userNames, readOnly, onClose, onSave, onDelete, onQuickProgress }) {
+function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+function PhotoViewerModal({ viewingData, onClose }) {
+  const [index, setIndex] = useState(viewingData?.initialIndex || 0);
+
+  if (!viewingData || !viewingData.photos || viewingData.photos.length === 0) return null;
+
+  const current = viewingData.photos[index] || viewingData.photos[0];
+
+  function handleDownload() {
+    const link = document.createElement("a");
+    link.href = current;
+    link.download = `${(viewingData.title || "photo").replace(/\s+/g, "_")}-${index + 1}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  return (
+    <div className="jd-lightbox-overlay" onClick={onClose}>
+      <div style={{ position: "absolute", top: 18, right: 22, display: "flex", gap: 12, zIndex: 101 }}>
+        <button type="button" className="jd-primary-btn" style={{ padding: "6px 12px", fontSize: "12px", gap: "4px" }} onClick={(e) => { e.stopPropagation(); handleDownload(); }}>
+          Download
+        </button>
+        <button type="button" className="jd-icon-btn" style={{ background: "#262A31", color: "#fff", padding: "8px" }} onClick={onClose}>
+          <X size={20} />
+        </button>
+      </div>
+
+      {viewingData.title && (
+        <div style={{ position: "absolute", top: 20, left: 24, color: "#ECEAE5", fontSize: "15px", fontWeight: 600, fontFamily: "'Oswald', sans-serif" }}>
+          {viewingData.title} {viewingData.photos.length > 1 ? `(${index + 1} of ${viewingData.photos.length})` : ""}
+        </div>
+      )}
+
+      <div className="jd-lightbox-content" onClick={(e) => e.stopPropagation()}>
+        {viewingData.photos.length > 1 && (
+          <button
+            type="button"
+            className="jd-icon-btn"
+            style={{ position: "absolute", left: -50, background: "rgba(30,33,38,0.85)", padding: "10px", borderRadius: "50%", color: "#fff", zIndex: 10 }}
+            onClick={() => setIndex((index - 1 + viewingData.photos.length) % viewingData.photos.length)}
+          >
+            ←
+          </button>
+        )}
+
+        <img src={current} alt="Preview" className="jd-lightbox-img" />
+
+        {viewingData.photos.length > 1 && (
+          <button
+            type="button"
+            className="jd-icon-btn"
+            style={{ position: "absolute", right: -50, background: "rgba(30,33,38,0.85)", padding: "10px", borderRadius: "50%", color: "#fff", zIndex: 10 }}
+            onClick={() => setIndex((index + 1) % viewingData.photos.length)}
+          >
+            →
+          </button>
+        )}
+      </div>
+
+      {viewingData.photos.length > 1 && (
+        <div className="jd-lightbox-bar" onClick={(e) => e.stopPropagation()}>
+          {viewingData.photos.map((p, idx) => (
+            <img
+              key={idx}
+              src={p}
+              alt={`Thumb ${idx}`}
+              className={`jd-lightbox-thumb ${idx === index ? "active" : ""}`}
+              onClick={() => setIndex(idx)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, userNames, readOnly, onClose, onSave, onDelete, onQuickProgress, onPreviewPhoto }) {
   const isMaintenance = initial ? (initial.projectToken === "maintenance") : (defaultType === "maintenance");
 
   const [selectedNameOption, setSelectedNameOption] = useState(() => {
@@ -1725,6 +1966,8 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
   const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
   const [progress, setProgress] = useState(initial?.progress ?? 0);
+  const [photos, setPhotos] = useState(initial?.photos || []);
+  const [uploading, setUploading] = useState(false);
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
@@ -1751,7 +1994,8 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         startDate,
         daysRequired: Number(daysRequired) || 0,
         endDateOverride,
-        progress: Number(progress)
+        progress: Number(progress),
+        photos
       },
       initial?.id
     );
@@ -1837,6 +2081,63 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           </div>
         )}
 
+        <label className="jd-field-label"><Camera size={12} /> Photos ({photos.length})</label>
+        {photos.length > 0 && (
+          <div className="jd-photo-grid">
+            {photos.map((p, idx) => (
+              <div
+                key={idx}
+                className="jd-photo-thumb"
+                onClick={() => onPreviewPhoto && onPreviewPhoto({ title: `${task} — ${initial?.project || defaultProject || "Photos"}`, photos, initialIndex: idx })}
+              >
+                <img src={p} alt={`Photo ${idx + 1}`} />
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="jd-photo-remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotos(photos.filter((_, i) => i !== idx));
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!readOnly && (
+          <label className="jd-photo-upload-btn">
+            <Upload size={14} /> {uploading ? "Compressing & attaching..." : "Upload Photos"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              disabled={uploading}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                setUploading(true);
+                const compressedList = [];
+                for (const file of files) {
+                  try {
+                    const dataUrl = await compressImage(file);
+                    compressedList.push(dataUrl);
+                  } catch (err) {
+                    console.error("Compression error:", err);
+                  }
+                }
+                setPhotos((prev) => [...prev, ...compressedList]);
+                setUploading(false);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
+
         <div className="jd-modal-actions">
           {readOnly ? (
             <button type="button" className="jd-primary-btn jd-full" onClick={onClose}>Close view</button>
@@ -1845,7 +2146,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
               {onDelete && (
                 <button type="button" className="jd-danger-btn" onClick={onDelete}><Trash2 size={14} /> Delete</button>
               )}
-              <button type="submit" className="jd-primary-btn">{initial ? "Save changes" : "Add task"}</button>
+              <button type="submit" className="jd-primary-btn" disabled={uploading}>{initial ? "Save changes" : "Add task"}</button>
             </>
           )}
         </div>
@@ -1854,7 +2155,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   );
 }
 
-function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks }) {
+function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, onPreviewPhoto }) {
   const [selectedNameOption, setSelectedNameOption] = useState(DEFAULT_NAMES[0]);
   const [customNameInput, setCustomNameInput] = useState("");
   const [task, setTask] = useState("");
@@ -1864,6 +2165,8 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks }) 
   const [daysRequired, setDaysRequired] = useState("");
   const [endDateOverride, setEndDateOverride] = useState("");
   const [progress, setProgress] = useState(0);
+  const [photos, setPhotos] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
@@ -1894,7 +2197,8 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks }) 
       startDate,
       daysRequired: Number(daysRequired) || 0,
       endDateOverride,
-      progress: Number(progress)
+      progress: Number(progress),
+      photos
     });
   }
 
@@ -1963,9 +2267,62 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks }) 
           ))}
         </div>
 
+        <label className="jd-field-label"><Camera size={12} /> Photos ({photos.length})</label>
+        {photos.length > 0 && (
+          <div className="jd-photo-grid">
+            {photos.map((p, idx) => (
+              <div
+                key={idx}
+                className="jd-photo-thumb"
+                onClick={() => onPreviewPhoto && onPreviewPhoto({ title: `${task} — Photos`, photos, initialIndex: idx })}
+              >
+                <img src={p} alt={`Photo ${idx + 1}`} />
+                <button
+                  type="button"
+                  className="jd-photo-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotos(photos.filter((_, i) => i !== idx));
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <label className="jd-photo-upload-btn">
+          <Upload size={14} /> {uploading ? "Compressing & attaching..." : "Upload Photos"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            disabled={uploading}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              if (!files.length) return;
+              setUploading(true);
+              const compressedList = [];
+              for (const file of files) {
+                try {
+                  const dataUrl = await compressImage(file);
+                  compressedList.push(dataUrl);
+                } catch (err) {
+                  console.error("Compression error:", err);
+                }
+              }
+              setPhotos((prev) => [...prev, ...compressedList]);
+              setUploading(false);
+              e.target.value = "";
+            }}
+          />
+        </label>
+
         <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
           <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="jd-primary-btn">Create Project</button>
+          <button type="submit" className="jd-primary-btn" disabled={uploading}>Create Project</button>
         </div>
       </form>
     </div>
@@ -2140,7 +2497,9 @@ html, body {
 .jd-stat-value { font-family:'Oswald', sans-serif; font-size:26px; font-weight:600; }
 .jd-stat-label { font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px; }
 
-.jd-charts { display:grid; grid-template-columns:1fr 2fr; gap:14px; }
+.jd-charts { display: flex; flex-wrap: wrap; gap: 14px; }
+.jd-charts > .jd-panel { flex: 1 1 280px; min-width: 280px; }
+.jd-charts > .jd-panel-wide { flex: 2 1 400px; min-width: 320px; }
 .jd-panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; max-width:100%; overflow-x:auto; }
 .jd-panel h4 { display:flex; align-items:center; gap:6px; font-family:'Oswald', sans-serif; font-size:14px; font-weight:600; margin:0 0 10px; color:var(--text); }
 .jd-panel-wide { min-width:0; }
@@ -2197,6 +2556,19 @@ html, body {
 .jd-link-btn { background:none; border:none; color:var(--accent); cursor:pointer; font-size:12.5px; text-decoration:underline; font-family:inherit; padding:0; }
 .jd-link-btn:hover { color:#fff; }
 
+.jd-photo-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.jd-photo-thumb { position:relative; width:64px; height:64px; border-radius:6px; overflow:hidden; border:1px solid var(--border); cursor:pointer; background:var(--panel-2); }
+.jd-photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.jd-photo-remove { position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.75); border:none; color:#ff6b6b; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+.jd-photo-upload-btn { display:flex; align-items:center; justify-content:center; gap:6px; border:1px dashed var(--border); background:var(--panel-2); color:var(--text-dim); border-radius:7px; padding:10px; cursor:pointer; font-size:12.5px; font-weight:500; margin-top:8px; transition:border-color 0.2s; }
+.jd-photo-upload-btn:hover { border-color:var(--accent); color:var(--text); }
+.jd-lightbox-overlay { position:fixed; inset:0; background:rgba(10,11,13,0.92); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; z-index:100; backdrop-filter:blur(4px); }
+.jd-lightbox-content { position:relative; max-width:90vw; max-height:75vh; display:flex; align-items:center; justify-content:center; }
+.jd-lightbox-img { max-width:100%; max-height:75vh; border-radius:8px; object-fit:contain; box-shadow:0 12px 36px rgba(0,0,0,0.8); }
+.jd-lightbox-bar { display:flex; gap:8px; margin-top:16px; overflow-x:auto; max-width:90vw; padding:4px; }
+.jd-lightbox-thumb { width:52px; height:52px; border-radius:6px; object-fit:cover; cursor:pointer; border:2px solid transparent; opacity:0.6; transition:all 0.2s; }
+.jd-lightbox-thumb.active { border-color:var(--accent); opacity:1; }
+
 @media (max-width: 768px) {
   .jd-tabs { display: none !important; }
   .jd-hamburger { display: flex; }
@@ -2210,7 +2582,7 @@ html, body {
 
   .jd-projects-layout { grid-template-columns: 1fr; }
   .jd-stats { grid-template-columns: repeat(3, 1fr); }
-  .jd-charts { grid-template-columns: 1fr; }
+  .jd-charts { flex-direction: column; }
   .jd-two-col { grid-template-columns: 1fr; }
   .jd-header { padding: 12px 16px; flex-direction: row; gap: 10px; align-items: center; justify-content: space-between; }
   .jd-user { justify-content: flex-end; }
