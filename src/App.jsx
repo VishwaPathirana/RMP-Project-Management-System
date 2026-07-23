@@ -1232,6 +1232,7 @@ export default function App() {
                     <th>Location</th>
                     <th>Assignee</th>
                     <th>Start Date</th>
+                    <th>End Date</th>
                     <th>Days</th>
                     <th>Progress</th>
                     <th>Status</th>
@@ -1250,6 +1251,7 @@ export default function App() {
                         <td>{t.location || "—"}</td>
                         <td>{t.assigneeName || "—"}</td>
                         <td className="jd-mono">{fmt(t.startDate)}</td>
+                        <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
                         <td>{t.daysRequired || "—"}</td>
                         <td><ProgressBar value={t.progress} /></td>
                         <td>
@@ -1502,6 +1504,7 @@ export default function App() {
                         <th>Location</th>
                         <th>Assignee</th>
                         <th>Start Date</th>
+                        <th>End Date</th>
                         <th>Days</th>
                         <th>Progress</th>
                         <th>Status</th>
@@ -1519,6 +1522,7 @@ export default function App() {
                             <td>{t.location || "—"}</td>
                             <td>{t.assigneeName || "—"}</td>
                             <td className="jd-mono">{fmt(t.startDate)}</td>
+                            <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
                             <td>{t.daysRequired || "—"}</td>
                             <td><ProgressBar value={t.progress} /></td>
                             <td>
