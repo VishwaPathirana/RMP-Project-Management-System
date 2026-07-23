@@ -1225,8 +1225,8 @@ export default function App() {
             {filteredMaintenanceTasks.length === 0 ? (
               <p className="jd-empty-note">No maintenance tasks found.</p>
             ) : (
-              <div style={{ overflowX: "auto", width: "100%" }}>
-                <table className="jd-table jd-table-click" style={{ minWidth: "1100px" }}>
+              <div className="jd-table-container">
+                <table className="jd-table jd-table-click">
                 <thead>
                   <tr>
                     <th>Task No</th>
@@ -1500,8 +1500,8 @@ export default function App() {
                 {filteredProjectTasks.length === 0 ? (
                   <p className="jd-empty-note">No tasks found in this project.</p>
                 ) : (
-                  <div style={{ overflowX: "auto", width: "100%" }}>
-                    <table className="jd-table jd-table-click" style={{ minWidth: "1100px" }}>
+                  <div className="jd-table-container">
+                    <table className="jd-table jd-table-click">
                     <thead>
                       <tr>
                         <th>Task No</th>
@@ -2671,8 +2671,13 @@ html, body {
 .jd-empty-note { color:var(--text-dim); font-size:13px; }
 
 .jd-two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.jd-table { width:100%; border-collapse:collapse; font-size:13px; }
-.jd-table th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim); padding:6px 8px; border-bottom:1px solid var(--border); }
+.jd-table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
+.jd-table th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim); padding:8px 8px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); z-index:10; }
+.jd-table-container { overflow:auto; max-height:calc(100vh - 330px); border:1px solid var(--border); border-radius:8px; background:var(--panel); }
+.jd-table-container::-webkit-scrollbar { width:6px; height:6px; }
+.jd-table-container::-webkit-scrollbar-track { background:transparent; }
+.jd-table-container::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.jd-table-container::-webkit-scrollbar-thumb:hover { background:var(--text-dim); }
 .jd-table td { padding:8px; border-bottom:1px solid var(--border); }
 .jd-table-click tr { cursor:pointer; }
 .jd-table-click tr:hover { background:var(--panel-2); }
