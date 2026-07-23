@@ -139,6 +139,7 @@ export default function App() {
         let location = "";
         let assigneeName = "";
         let photos = [];
+        let description = "";
         if (t.assignee && t.assignee.includes(" ||| ")) {
           const parts = t.assignee.split(" ||| ");
           location = parts[0] || "";
@@ -150,6 +151,7 @@ export default function App() {
               photos = [];
             }
           }
+          description = parts[3] || "";
         } else {
           location = t.assignee || "";
           assigneeName = "";
@@ -158,7 +160,8 @@ export default function App() {
           ...t,
           location,
           assigneeName,
-          photos
+          photos,
+          description
         };
       });
       try {
@@ -265,12 +268,13 @@ export default function App() {
       const nextIds = new Set(next.map((t) => t.id));
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
-      // Combine location, assigneeName, and photos into assignee column, strip photos and client-only fields from dbRows
-      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, ...row }) => {
+      // Combine location, assigneeName, photos, and description into assignee column, strip photos, description and client-only fields from dbRows
+      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, ...row }) => {
         const photoPayload = photos && photos.length ? JSON.stringify(photos) : "";
+        const descPayload = description ? description.trim() : "";
         return {
           ...row,
-          assignee: `${location || ""} ||| ${assigneeName || ""}${photoPayload ? ` ||| ${photoPayload}` : ""}`
+          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload}`
         };
       });
 
@@ -2099,6 +2103,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const [progress, setProgress] = useState(initial?.progress ?? 0);
   const [photos, setPhotos] = useState(initial?.photos || []);
   const [uploading, setUploading] = useState(false);
+  const [description, setDescription] = useState(initial?.description || "");
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
@@ -2126,7 +2131,8 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         daysRequired: Number(daysRequired) || 0,
         endDateOverride,
         progress: Number(progress),
-        photos
+        photos,
+        description
       },
       initial?.id
     );
@@ -2186,6 +2192,16 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
         <label className="jd-field-label">Assignee</label>
         <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={readOnly} />
+
+        <label className="jd-field-label">Description</label>
+        <textarea
+          className="jd-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Enter task description details..."
+          disabled={readOnly}
+          style={{ minHeight: "80px", resize: "vertical" }}
+        />
 
         <div className="jd-form-row">
           <div>
@@ -2297,6 +2313,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
   const [progress, setProgress] = useState(0);
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [description, setDescription] = useState("");
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
@@ -2328,7 +2345,8 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
       daysRequired: Number(daysRequired) || 0,
       endDateOverride,
       progress: Number(progress),
-      photos
+      photos,
+      description
     });
   }
 
@@ -2373,6 +2391,15 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
 
         <label className="jd-field-label">Assignee</label>
         <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={false} />
+
+        <label className="jd-field-label">Description</label>
+        <textarea
+          className="jd-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Enter task description details..."
+          style={{ minHeight: "80px", resize: "vertical" }}
+        />
 
         <div className="jd-form-row">
           <div>
