@@ -69,9 +69,10 @@ function statusOf(progress) {
   return "Not Started";
 }
 function addDays(dateStr, days) {
-  if (!dateStr || !days) return "";
+  if (!dateStr) return "";
+  const numDays = Number(days) || 0;
   const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + Number(days));
+  d.setDate(d.getDate() + numDays);
   return d.toISOString().slice(0, 10);
 }
 function fmt(dateStr) {
@@ -274,6 +275,7 @@ export default function App() {
         const descPayload = description ? description.trim() : "";
         return {
           ...row,
+          endDate: row.endDate && row.endDate.trim() ? row.endDate.trim() : null,
           assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload}`
         };
       });
@@ -291,8 +293,7 @@ export default function App() {
       }
       setErr("");
     } catch (e) {
-      console.error(e);
-      setErr("Couldn't save — try again.");
+      setErr("Couldn't save: " + (e.message || JSON.stringify(e)));
     }
   }
 
@@ -321,7 +322,7 @@ export default function App() {
       setErr("");
     } catch (e) {
       console.error(e);
-      setErr("Couldn't save users — try again.");
+      setErr("Couldn't save users: " + (e.message || JSON.stringify(e)));
     }
   }
 
