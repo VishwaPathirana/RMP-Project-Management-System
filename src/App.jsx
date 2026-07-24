@@ -3066,15 +3066,15 @@ html, body {
 
 .jd-main { padding:20px 22px 40px; display:flex; flex-direction:column; gap:18px; }
 .jd-stats { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
-.jd-stat { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
-.jd-stat-value { font-family:'Oswald', sans-serif; font-size:26px; font-weight:600; }
+.jd-stat { background:var(--panel); border:1px solid var(--accent); border-radius:10px; padding:14px; text-align:center; }
+.jd-stat-value { font-family:'Oswald', sans-serif; font-size:26px; font-weight:600; color:var(--accent); }
 .jd-stat-label { font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px; }
 
 .jd-charts { display: flex; flex-wrap: wrap; gap: 14px; }
 .jd-charts > .jd-panel { flex: 1 1 280px; min-width: 280px; }
 .jd-charts > .jd-panel-wide { flex: 2 1 400px; min-width: 320px; }
-.jd-panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; max-width:100%; overflow-x:auto; }
-.jd-panel h4 { display:flex; align-items:center; gap:6px; font-family:'Oswald', sans-serif; font-size:14px; font-weight:600; margin:0 0 10px; color:var(--text); }
+.jd-panel { background:var(--panel); border:1px solid var(--accent); border-radius:10px; padding:16px; max-width:100%; overflow-x:auto; }
+.jd-panel h4 { display:flex; align-items:center; gap:6px; font-family:'Oswald', sans-serif; font-size:14px; font-weight:600; margin:0 0 10px; color:var(--accent); }
 .jd-panel-wide { min-width:0; }
 .jd-empty-note { color:var(--text-dim); font-size:13px; }
 
