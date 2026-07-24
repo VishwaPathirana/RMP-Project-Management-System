@@ -168,6 +168,7 @@ export default function App() {
         let assigneeName = "";
         let photos = [];
         let description = "";
+        let subTasks = [];
         if (t.assignee && t.assignee.includes(" ||| ")) {
           const parts = t.assignee.split(" ||| ");
           location = parts[0] || "";
@@ -180,6 +181,13 @@ export default function App() {
             }
           }
           description = parts[3] || "";
+          if (parts[4]) {
+            try {
+              subTasks = JSON.parse(parts[4]);
+            } catch (e) {
+              subTasks = [];
+            }
+          }
         } else {
           location = t.assignee || "";
           assigneeName = "";
@@ -189,7 +197,8 @@ export default function App() {
           location,
           assigneeName,
           photos,
-          description
+          description,
+          subTasks
         };
       });
       try {
@@ -297,13 +306,14 @@ export default function App() {
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
       // Combine location, assigneeName, photos, and description into assignee column, strip photos, description and client-only fields from dbRows
-      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, ...row }) => {
+      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, subTasks, ...row }) => {
         const photoPayload = photos && photos.length ? JSON.stringify(photos) : "";
         const descPayload = description ? description.trim() : "";
+        const subTasksPayload = subTasks && subTasks.length ? JSON.stringify(subTasks) : "";
         return {
           ...row,
           endDate: row.endDate && row.endDate.trim() ? row.endDate.trim() : null,
-          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload}`
+          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload}`
         };
       });
 
@@ -1337,7 +1347,14 @@ export default function App() {
                     const taskPhotos = t.photos || [];
                     return (
                       <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                        <td><strong>{t.task}</strong></td>
+                        <td>
+                          <strong>{t.task}</strong>
+                          {t.subTasks && t.subTasks.length > 0 && (
+                            <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                              {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                            </div>
+                          )}
+                        </td>
                         <td>{t.project || "—"}</td>
                         <td>{t.location || "—"}</td>
                         <td>{t.assigneeName || "—"}</td>
@@ -1671,7 +1688,14 @@ export default function App() {
                         const taskPhotos = t.photos || [];
                         return (
                           <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                            <td><strong>{t.task}</strong></td>
+                            <td>
+                              <strong>{t.task}</strong>
+                              {t.subTasks && t.subTasks.length > 0 && (
+                                <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                  {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                                </div>
+                              )}
+                            </td>
                             <td>{t.location || "—"}</td>
                             <td>{t.assigneeName || "—"}</td>
                             <td className="jd-mono">{fmt(t.startDate)}</td>
@@ -2262,6 +2286,45 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const [photos, setPhotos] = useState(initial?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [description, setDescription] = useState(initial?.description || "");
+  const [subTasks, setSubTasks] = useState(initial?.subTasks || []);
+  const [subTaskInput, setSubTaskInput] = useState("");
+
+  const handleToggleSubTask = (idx) => {
+    if (readOnly) return;
+    const nextSubTasks = subTasks.map((st, i) => i === idx ? { ...st, completed: !st.completed } : st);
+    setSubTasks(nextSubTasks);
+    const completedCount = nextSubTasks.filter(st => st.completed).length;
+    const totalCount = nextSubTasks.length;
+    if (totalCount > 0) {
+      setProgress(Math.round((completedCount / totalCount) * 100));
+    }
+  };
+
+  const handleAddSubTask = (e) => {
+    if (e) e.preventDefault();
+    if (readOnly) return;
+    const trimmed = subTaskInput.trim();
+    if (!trimmed) return;
+    const nextSubTasks = [...subTasks, { text: trimmed, completed: false }];
+    setSubTasks(nextSubTasks);
+    setSubTaskInput("");
+    const completedCount = nextSubTasks.filter(st => st.completed).length;
+    const totalCount = nextSubTasks.length;
+    setProgress(Math.round((completedCount / totalCount) * 100));
+  };
+
+  const handleDeleteSubTask = (idx) => {
+    if (readOnly) return;
+    const nextSubTasks = subTasks.filter((_, i) => i !== idx);
+    setSubTasks(nextSubTasks);
+    const completedCount = nextSubTasks.filter(st => st.completed).length;
+    const totalCount = nextSubTasks.length;
+    if (totalCount > 0) {
+      setProgress(Math.round((completedCount / totalCount) * 100));
+    } else {
+      setProgress(0);
+    }
+  };
 
   const computedEnd = endDateOverride || addDays(startDate, daysRequired);
 
@@ -2290,7 +2353,8 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         endDateOverride,
         progress: Number(progress),
         photos,
-        description
+        description,
+        subTasks
       },
       initial?.id
     );
@@ -2365,6 +2429,67 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           disabled={readOnly}
           style={{ minHeight: "80px", resize: "vertical" }}
         />
+
+        <label className="jd-field-label">Sub-tasks</label>
+        <div style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Sub-tasks list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto" }}>
+            {subTasks.map((st, idx) => (
+              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13px", color: st.completed ? "var(--text-dim)" : "var(--text)", textDecoration: st.completed ? "line-through" : "none", flex: 1, userSelect: "none" }}>
+                  <input
+                    type="checkbox"
+                    checked={st.completed}
+                    onChange={() => handleToggleSubTask(idx)}
+                    disabled={readOnly}
+                    style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
+                  />
+                  <span>{st.text}</span>
+                </label>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSubTask(idx)}
+                    style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {subTasks.length === 0 && (
+              <span style={{ fontSize: "12px", color: "var(--text-dim)", fontStyle: "italic" }}>No sub-tasks defined</span>
+            )}
+          </div>
+
+          {/* Add Sub-task form */}
+          {!readOnly && (
+            <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+              <input
+                type="text"
+                className="jd-input"
+                style={{ flex: 1, margin: 0, padding: "6px 10px", fontSize: "12.5px" }}
+                placeholder="Add new sub-task..."
+                value={subTaskInput}
+                onChange={(e) => setSubTaskInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubTask();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="jd-primary-btn"
+                onClick={handleAddSubTask}
+                style={{ padding: "6px 12px", fontSize: "12.5px" }}
+              >
+                Add
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="jd-form-row">
           <div>
