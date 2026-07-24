@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -135,6 +135,23 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState("");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("app-theme") || "dark";
+  });
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    localStorage.setItem("app-theme", nextTheme);
+  };
+
+  useEffect(() => {
+    if (theme === "light") {
+      document.documentElement.classList.add("light-mode");
+    } else {
+      document.documentElement.classList.remove("light-mode");
+    }
+  }, [theme]);
 
   // Sync state from hash routing helper
   function syncStateFromHash() {
@@ -961,6 +978,9 @@ export default function App() {
           <span className="jd-user-name">
             <User size={14} /> {session.name}
           </span>
+          <button type="button" className="jd-icon-btn jd-theme-btn" onClick={toggleTheme} title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`} style={{ marginRight: "4px" }}>
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           <button className="jd-icon-btn jd-hamburger" onClick={() => setMenuOpen(!menuOpen)} title="Toggle menu">
             <Menu size={16} />
           </button>
@@ -1049,7 +1069,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -1060,10 +1080,10 @@ export default function App() {
               <div style={{ position: "relative", width: "100%", height: "210px" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={mByTaskName} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke="#343941" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
+                    <CartesianGrid stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "var(--text)", fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
                     <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
                       {mByTaskName.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -1092,7 +1112,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={ASSIGNEE_CHART_COLORS[index % ASSIGNEE_CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -1143,7 +1163,7 @@ export default function App() {
                   {mByAssignee.map((p) => (
                     <tr key={p.assignee}>
                       <td><strong>{p.assignee}</strong></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,255,255,0.06)", color: "#ECEAE5" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "var(--panel-2)", color: "var(--text)" }}>{p.tasks}</span></td>
                       <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
                       <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
                       <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
@@ -1192,10 +1212,10 @@ export default function App() {
               <div style={{ position: "relative", width: "100%", height: "210px" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byProject} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke="#343941" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "#9BA1AA", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "#ECEAE5", fontSize: 11 }} />
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
+                    <CartesianGrid stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "var(--text)", fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
                     <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
                       {byProject.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -1224,7 +1244,7 @@ export default function App() {
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1E2126", border: "1px solid #343941", borderRadius: 8, color: "#ECEAE5" }} itemStyle={{ color: "#ECEAE5" }} labelStyle={{ color: "#ECEAE5" }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -2982,14 +3002,39 @@ function UserManagementPanel({ users, session, onSaveUsers }) {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap');
 
+:root {
+  --bg: #15171B;
+  --panel: #1E2126;
+  --panel-2: #262A31;
+  --border: #343941;
+  --text: #ECEAE5;
+  --text-dim: #9BA1AA;
+  --accent: #F26430;
+  color-scheme: dark;
+}
+
+:root.light-mode {
+  --bg: #F5F7FA;
+  --panel: #FFFFFF;
+  --panel-2: #E8ECF2;
+  --border: #CFD6E0;
+  --text: #171A1F;
+  --text-dim: #606875;
+  --accent: #F26430;
+  color-scheme: light;
+}
+
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #15171B;
+  background-color: var(--bg);
+  transition: background-color 0.2s;
 }
 
-.jd-app { --bg:#15171B; --panel:#1E2126; --panel-2:#262A31; --border:#343941; --text:#ECEAE5; --text-dim:#9BA1AA; --accent:#F26430;
-  font-family:'Inter', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; width:100%; box-sizing:border-box; }
+.jd-app {
+  font-family:'Inter', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; width:100%; box-sizing:border-box;
+  transition: background-color 0.2s, color 0.2s;
+}
 .jd-app * { box-sizing:border-box; }
 .jd-loading { display:flex; align-items:center; justify-content:center; height:100vh; color:var(--text-dim); font-family:'JetBrains Mono', monospace; }
 
