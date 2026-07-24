@@ -135,6 +135,55 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState("");
+
+  // Sync state from hash routing helper
+  function syncStateFromHash() {
+    const hash = window.location.hash || "";
+    if (hash.startsWith("#/view/")) {
+      const path = hash.substring(7);
+      if (path.includes("/project/")) {
+        const parts = path.split("/project/");
+        const viewName = parts[0];
+        const rawProjectName = parts[1];
+        const projectName = decodeURIComponent(rawProjectName);
+        setView(viewName);
+        setSelectedProject(projectName);
+      } else {
+        setView(path);
+        setSelectedProject("");
+      }
+    } else {
+      setView("m-dashboard");
+      setSelectedProject("");
+    }
+  }
+
+  // Effect to listen for browser back/forward buttons (hashchange event)
+  useEffect(() => {
+    // Initial sync
+    syncStateFromHash();
+
+    const handleHashChange = () => {
+      syncStateFromHash();
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  // Effect to update browser hash when React state changes (creating history entries)
+  useEffect(() => {
+    let expectedHash = "";
+    if (selectedProject) {
+      expectedHash = `#/view/${view}/project/${encodeURIComponent(selectedProject)}`;
+    } else {
+      expectedHash = `#/view/${view}`;
+    }
+    if (window.location.hash !== expectedHash) {
+      window.location.hash = expectedHash;
+    }
+  }, [view, selectedProject]);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [formType, setFormType] = useState("maintenance");
   const [mSearch, setMSearch] = useState("");
@@ -1630,7 +1679,7 @@ export default function App() {
                       className="jd-input"
                       value={tSearch}
                       onChange={(e) => setTSearch(e.target.value)}
-                      placeholder="Search by Task No, Location..."
+                      placeholder="Search by Task Name, Location..."
                       style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                     />
                     <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
@@ -2435,7 +2484,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           </>
         )}
 
-        <label className="jd-field-label">Task No</label>
+        <label className="jd-field-label">Task Name</label>
         <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
 
         <label className="jd-field-label">Location</label>
@@ -2700,7 +2749,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
           />
         )}
 
-        <label className="jd-field-label">Task No (First Task)</label>
+        <label className="jd-field-label">Task Name </label>
         <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" />
 
         <label className="jd-field-label">Location</label>
