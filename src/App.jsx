@@ -36,17 +36,14 @@ const ASSIGNEE_CHART_COLORS = [
 ];
 
 const DEFAULT_NAMES = [
-  "WASTE WATER/CANTEEN/OTHERS",
-  "MILK SECTION",
-  "DC/LOW FAT SECTION",
-  "YARA",
-  "NEW OIL MILL",
-  "YARD A B C",
-  "WET A B C",
-  "Washrooms",
-  "Living Quarters",
-  "Creamed Coconut Plant",
-  "Mill Garden"
+  "Transformer project",
+  "New section D Project",
+  "New chiller press and milk tanks",
+  "waste water plant concreting",
+  "Stores area construction Project",
+  "canteen construction Project",
+  "upgrading preventive maintenance plan",
+  "factory Sustainability and energy"
 ];
 
 const DEFAULT_ASSIGNEES = [
