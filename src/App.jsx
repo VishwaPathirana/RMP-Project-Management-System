@@ -444,7 +444,31 @@ export default function App() {
   }
 
   async function deleteTask(id) {
-    await saveTasks(tasks.filter((t) => t.id !== id));
+    const taskToDelete = tasks.find((t) => t.id === id);
+    let nextList = tasks.filter((t) => t.id !== id);
+    if (taskToDelete && taskToDelete.projectToken !== "maintenance" && taskToDelete.project) {
+      const remainingTasksInProj = nextList.filter(
+        (t) => t.project && t.project.toLowerCase() === taskToDelete.project.toLowerCase()
+      );
+      if (remainingTasksInProj.length === 0) {
+        const placeholder = {
+          id: "P-" + Date.now(),
+          project: taskToDelete.project,
+          projectToken: "project",
+          task: "__init__",
+          assignee: "",
+          progress: 0,
+          startDate: todayStr(),
+          daysRequired: 0,
+          endDate: todayStr(),
+          createdBy: session.name,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        nextList = [placeholder, ...nextList];
+      }
+    }
+    await saveTasks(nextList);
     setEditTask(null);
   }
 
@@ -455,8 +479,8 @@ export default function App() {
   }
 
   const maintenanceTasks = useMemo(() => tasks.filter(t => t.projectToken === "maintenance" && t.task !== "__init__"), [tasks]);
-  const projectTasks = useMemo(() => tasks.filter(t => 
-    t.projectToken !== "maintenance" && 
+  const projectTasks = useMemo(() => tasks.filter(t =>
+    t.projectToken !== "maintenance" &&
     t.task !== "__init__" &&
     t.task.toLowerCase() !== "main project" &&
     t.task.toLowerCase() !== "main" &&
@@ -769,7 +793,7 @@ export default function App() {
     }
     if (mSearch.trim()) {
       const q = mSearch.toLowerCase().trim();
-      list = list.filter(t => 
+      list = list.filter(t =>
         (t.task && t.task.toLowerCase().includes(q)) ||
         (t.project && t.project.toLowerCase().includes(q)) ||
         (t.location && t.location.toLowerCase().includes(q)) ||
@@ -838,7 +862,7 @@ export default function App() {
     }
     if (tSearch.trim()) {
       const q = tSearch.toLowerCase().trim();
-      list = list.filter(t => 
+      list = list.filter(t =>
         (t.task && t.task.toLowerCase().includes(q)) ||
         (t.projectToken && t.projectToken.toLowerCase().includes(q)) ||
         (t.location && t.location.toLowerCase().includes(q)) ||
@@ -1332,77 +1356,77 @@ export default function App() {
             ) : (
               <div className="jd-table-container">
                 <table className="jd-table jd-table-click">
-                <thead>
-                  <tr>
-                    <th>Task No</th>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Assignee</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Days</th>
-                    <th>Progress</th>
-                    <th>Status</th>
-                    <th>Photos</th>
-                    <th>Created By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMaintenanceTasks.map((t) => {
-                    const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
-                    const taskPhotos = t.photos || [];
-                    return (
-                      <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                        <td>
-                          <strong>{t.task}</strong>
-                          {t.subTasks && t.subTasks.length > 0 && (
-                            <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                              {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                            </div>
-                          )}
-                        </td>
-                        <td>{t.project || "—"}</td>
-                        <td>{t.location || "—"}</td>
-                        <td>{t.assigneeName || "—"}</td>
-                        <td className="jd-mono">{fmt(t.startDate)}</td>
-                        <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
-                        <td>{t.daysRequired || "—"}</td>
-                        <td><ProgressBar value={t.progress} /></td>
-                        <td>
-                          <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
-                            {statusOf(t.progress)}
-                          </span>
-                        </td>
-                        <td>
-                          {taskPhotos.length > 0 ? (
-                            <div
-                              style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewingPhotos({ title: `${t.task} — ${t.project || "Maintenance"}`, photos: taskPhotos });
-                              }}
-                            >
-                              <img
-                                src={taskPhotos[0]}
-                                alt="Thumbnail"
-                                style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
-                              />
-                              {taskPhotos.length > 1 && (
-                                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                                  +{taskPhotos.length - 1}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
-                          )}
-                        </td>
-                        <td>{t.createdBy}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                  <thead>
+                    <tr>
+                      <th>Task No</th>
+                      <th>Name</th>
+                      <th>Location</th>
+                      <th>Assignee</th>
+                      <th>Start Date</th>
+                      <th>End Date</th>
+                      <th>Days</th>
+                      <th>Progress</th>
+                      <th>Status</th>
+                      <th>Photos</th>
+                      <th>Created By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMaintenanceTasks.map((t) => {
+                      const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                      const taskPhotos = t.photos || [];
+                      return (
+                        <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
+                          <td>
+                            <strong>{t.task}</strong>
+                            {t.subTasks && t.subTasks.length > 0 && (
+                              <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                              </div>
+                            )}
+                          </td>
+                          <td>{t.project || "—"}</td>
+                          <td>{t.location || "—"}</td>
+                          <td>{t.assigneeName || "—"}</td>
+                          <td className="jd-mono">{fmt(t.startDate)}</td>
+                          <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
+                          <td>{t.daysRequired || "—"}</td>
+                          <td><ProgressBar value={t.progress} /></td>
+                          <td>
+                            <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
+                              {statusOf(t.progress)}
+                            </span>
+                          </td>
+                          <td>
+                            {taskPhotos.length > 0 ? (
+                              <div
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingPhotos({ title: `${t.task} — ${t.project || "Maintenance"}`, photos: taskPhotos });
+                                }}
+                              >
+                                <img
+                                  src={taskPhotos[0]}
+                                  alt="Thumbnail"
+                                  style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
+                                />
+                                {taskPhotos.length > 1 && (
+                                  <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                    +{taskPhotos.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                            )}
+                          </td>
+                          <td>{t.createdBy}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -1674,75 +1698,75 @@ export default function App() {
                 ) : (
                   <div className="jd-table-container">
                     <table className="jd-table jd-table-click">
-                    <thead>
-                      <tr>
-                        <th>Task No</th>
-                        <th>Location</th>
-                        <th>Assignee</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Days</th>
-                        <th>Progress</th>
-                        <th>Status</th>
-                        <th>Photos</th>
-                        <th>Created By</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProjectTasks.map((t) => {
-                        const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
-                        const taskPhotos = t.photos || [];
-                        return (
-                          <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                            <td>
-                              <strong>{t.task}</strong>
-                              {t.subTasks && t.subTasks.length > 0 && (
-                                <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                                  {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                                </div>
-                              )}
-                            </td>
-                            <td>{t.location || "—"}</td>
-                            <td>{t.assigneeName || "—"}</td>
-                            <td className="jd-mono">{fmt(t.startDate)}</td>
-                            <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
-                            <td>{t.daysRequired || "—"}</td>
-                            <td><ProgressBar value={t.progress} /></td>
-                            <td>
-                              <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
-                                {statusOf(t.progress)}
-                              </span>
-                            </td>
-                            <td>
-                              {taskPhotos.length > 0 ? (
-                                <div
-                                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
-                                  }}
-                                >
-                                  <img
-                                    src={taskPhotos[0]}
-                                    alt="Thumbnail"
-                                    style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
-                                  />
-                                  {taskPhotos.length > 1 && (
-                                    <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                                      +{taskPhotos.length - 1}
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
-                              )}
-                            </td>
-                            <td>{t.createdBy}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                      <thead>
+                        <tr>
+                          <th>Task Name</th>
+                          <th>Location</th>
+                          <th>Assignee</th>
+                          <th>Start Date</th>
+                          <th>End Date</th>
+                          <th>Days</th>
+                          <th>Progress</th>
+                          <th>Status</th>
+                          <th>Photos</th>
+                          <th>Created By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProjectTasks.map((t) => {
+                          const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                          const taskPhotos = t.photos || [];
+                          return (
+                            <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
+                              <td>
+                                <strong>{t.task}</strong>
+                                {t.subTasks && t.subTasks.length > 0 && (
+                                  <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                    {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                                  </div>
+                                )}
+                              </td>
+                              <td>{t.location || "—"}</td>
+                              <td>{t.assigneeName || "—"}</td>
+                              <td className="jd-mono">{fmt(t.startDate)}</td>
+                              <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
+                              <td>{t.daysRequired || "—"}</td>
+                              <td><ProgressBar value={t.progress} /></td>
+                              <td>
+                                <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
+                                  {statusOf(t.progress)}
+                                </span>
+                              </td>
+                              <td>
+                                {taskPhotos.length > 0 ? (
+                                  <div
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                                    }}
+                                  >
+                                    <img
+                                      src={taskPhotos[0]}
+                                      alt="Thumbnail"
+                                      style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
+                                    />
+                                    {taskPhotos.length > 1 && (
+                                      <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                        +{taskPhotos.length - 1}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                                )}
+                              </td>
+                              <td>{t.createdBy}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
