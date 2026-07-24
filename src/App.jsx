@@ -2398,6 +2398,12 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     if (!initial?.assigneeName) return [];
     return initial.assigneeName.split(",").map(s => s.trim()).filter(Boolean);
   });
+  const [noDate, setNoDate] = useState(() => {
+    if (initial) {
+      return !initial.startDate;
+    }
+    return false;
+  });
   const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
   const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
   const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
@@ -2467,9 +2473,9 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         task: task.trim(),
         location: location.trim(),
         assigneeName: selectedAssignees.join(", "),
-        startDate,
-        daysRequired: Number(daysRequired) || 0,
-        endDateOverride,
+        startDate: noDate ? null : startDate,
+        daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
+        endDateOverride: noDate ? null : (endDateOverride || computedEnd),
         progress: Number(progress),
         photos,
         description,
@@ -2610,19 +2616,35 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           )}
         </div>
 
-        <div className="jd-form-row">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 16px" }}>
+          <input
+            type="checkbox"
+            id="jd-no-date"
+            checked={noDate}
+            onChange={(e) => setNoDate(e.target.checked)}
+            disabled={readOnly}
+            style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
+          />
+          <label htmlFor="jd-no-date" style={{ fontSize: "13px", color: "var(--text)", cursor: readOnly ? "default" : "pointer", userSelect: "none" }}>
+            No date for this task
+          </label>
+        </div>
+
+        <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
           <div>
             <label className="jd-field-label"><Calendar size={12} /> Start date</label>
-            <input type="date" className="jd-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly} />
+            <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
           </div>
           <div>
             <label className="jd-field-label">Days required</label>
-            <input type="number" min="0" className="jd-input" value={daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly} />
+            <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
           </div>
         </div>
 
-        <label className="jd-field-label">End date {daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
-        <input type="date" className="jd-input" value={computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly} />
+        <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+          <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
+          <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
+        </div>
 
         <label className="jd-field-label">Progress: {progress}%</label>
         <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" disabled={readOnly} />
@@ -2714,6 +2736,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
   const [task, setTask] = useState("");
   const [location, setLocation] = useState("");
   const [selectedAssignees, setSelectedAssignees] = useState([]);
+  const [noDate, setNoDate] = useState(false);
   const [startDate, setStartDate] = useState(todayStr());
   const [daysRequired, setDaysRequired] = useState("");
   const [endDateOverride, setEndDateOverride] = useState("");
@@ -2748,9 +2771,9 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
       task: task.trim(),
       location: location.trim(),
       assigneeName: selectedAssignees.join(", "),
-      startDate,
-      daysRequired: Number(daysRequired) || 0,
-      endDateOverride,
+      startDate: noDate ? null : startDate,
+      daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
+      endDateOverride: noDate ? null : (endDateOverride || computedEnd),
       progress: Number(progress),
       photos,
       description
@@ -2813,19 +2836,34 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
           style={{ minHeight: "80px", resize: "vertical" }}
         />
 
-        <div className="jd-form-row">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 16px" }}>
+          <input
+            type="checkbox"
+            id="jd-proj-no-date"
+            checked={noDate}
+            onChange={(e) => setNoDate(e.target.checked)}
+            style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: "pointer" }}
+          />
+          <label htmlFor="jd-proj-no-date" style={{ fontSize: "13px", color: "var(--text)", cursor: "pointer", userSelect: "none" }}>
+            No date for this task
+          </label>
+        </div>
+
+        <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
           <div>
             <label className="jd-field-label"><Calendar size={12} /> Start date</label>
-            <input type="date" className="jd-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={noDate} />
           </div>
           <div>
             <label className="jd-field-label">Days required</label>
-            <input type="number" min="0" className="jd-input" value={daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" />
+            <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={noDate} />
           </div>
         </div>
 
-        <label className="jd-field-label">End date {daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
-        <input type="date" className="jd-input" value={computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} />
+        <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+          <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
+          <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={noDate} />
+        </div>
 
         <label className="jd-field-label">Progress: {progress}%</label>
         <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" />
