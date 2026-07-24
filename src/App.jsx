@@ -125,6 +125,12 @@ export default function App() {
   const [mCreatorFilter, setMCreatorFilter] = useState("All");
   const [pCreatorFilter, setPCreatorFilter] = useState("All");
   const [tCreatorFilter, setTCreatorFilter] = useState("All");
+  const [mFromDate, setMFromDate] = useState("");
+  const [mToDate, setMToDate] = useState("");
+  const [pFromDate, setPFromDate] = useState("");
+  const [pToDate, setPToDate] = useState("");
+  const [tFromDate, setTFromDate] = useState("");
+  const [tToDate, setTToDate] = useState("");
   const [err, setErr] = useState("");
   const [viewingPhotos, setViewingPhotos] = useState(null);
 
@@ -718,6 +724,12 @@ export default function App() {
     if (mCreatorFilter !== "All") {
       list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === mCreatorFilter.toLowerCase());
     }
+    if (mFromDate) {
+      list = list.filter(t => (t.endDate || t.startDate) >= mFromDate);
+    }
+    if (mToDate) {
+      list = list.filter(t => t.startDate <= mToDate);
+    }
     if (mSearch.trim()) {
       const q = mSearch.toLowerCase().trim();
       list = list.filter(t => 
@@ -728,7 +740,7 @@ export default function App() {
       );
     }
     return list;
-  }, [maintenanceTasks, mSearch, mStatusFilter, mCreatorFilter]);
+  }, [maintenanceTasks, mSearch, mStatusFilter, mCreatorFilter, mFromDate, mToDate]);
 
   const filteredProjectsList = useMemo(() => {
     let list = projectsList;
@@ -746,12 +758,32 @@ export default function App() {
         return tasksInP.some(t => t.createdBy && t.createdBy.toLowerCase() === pCreatorFilter.toLowerCase());
       });
     }
+    if (pFromDate) {
+      list = list.filter(p => {
+        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        const maxEnd = tasksInP.reduce((max, t) => {
+          const end = t.endDate || t.startDate;
+          return !max || end > max ? end : max;
+        }, "");
+        return maxEnd >= pFromDate;
+      });
+    }
+    if (pToDate) {
+      list = list.filter(p => {
+        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        const minStart = tasksInP.reduce((min, t) => {
+          const start = t.startDate;
+          return !min || start < min ? start : min;
+        }, "");
+        return minStart <= pToDate;
+      });
+    }
     if (pSearch.trim()) {
       const q = pSearch.toLowerCase().trim();
       list = list.filter(p => p.toLowerCase().includes(q));
     }
     return list;
-  }, [projectsList, pSearch, pStatusFilter, pCreatorFilter, projectTasks, tasks]);
+  }, [projectsList, pSearch, pStatusFilter, pCreatorFilter, projectTasks, tasks, pFromDate, pToDate]);
 
   const filteredProjectTasks = useMemo(() => {
     let list = projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase());
@@ -760,6 +792,12 @@ export default function App() {
     }
     if (tCreatorFilter !== "All") {
       list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === tCreatorFilter.toLowerCase());
+    }
+    if (tFromDate) {
+      list = list.filter(t => (t.endDate || t.startDate) >= tFromDate);
+    }
+    if (tToDate) {
+      list = list.filter(t => t.startDate <= tToDate);
     }
     if (tSearch.trim()) {
       const q = tSearch.toLowerCase().trim();
@@ -771,7 +809,7 @@ export default function App() {
       );
     }
     return list;
-  }, [projectTasks, selectedProject, tSearch, tStatusFilter, tCreatorFilter]);
+  }, [projectTasks, selectedProject, tSearch, tStatusFilter, tCreatorFilter, tFromDate, tToDate]);
 
   if (loadingSession) {
     return (
@@ -1183,7 +1221,7 @@ export default function App() {
           <div className="jd-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
               <h4 style={{ margin: 0 }}>Maintenance Tasks</h4>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                 <input
                   type="text"
                   className="jd-input"
@@ -1192,6 +1230,36 @@ export default function App() {
                   placeholder="Search by Task No, Name, Location..."
                   style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                 />
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+                  <input
+                    type="date"
+                    className="jd-input"
+                    value={mFromDate}
+                    onChange={(e) => setMFromDate(e.target.value)}
+                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                  />
+                  {mFromDate && (
+                    <button type="button" onClick={() => setMFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
+                  <input
+                    type="date"
+                    className="jd-input"
+                    value={mToDate}
+                    onChange={(e) => setMToDate(e.target.value)}
+                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                  />
+                  {mToDate && (
+                    <button type="button" onClick={() => setMToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
                 <select
                   className="jd-input"
                   value={mStatusFilter}
@@ -1312,7 +1380,7 @@ export default function App() {
               <div className="jd-panel">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
                   <h4 style={{ margin: 0 }}>Projects</h4>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                     <input
                       type="text"
                       className="jd-input"
@@ -1321,6 +1389,36 @@ export default function App() {
                       placeholder="Search projects..."
                       style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                     />
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                      <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+                      <input
+                        type="date"
+                        className="jd-input"
+                        value={pFromDate}
+                        onChange={(e) => setPFromDate(e.target.value)}
+                        style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                      />
+                      {pFromDate && (
+                        <button type="button" onClick={() => setPFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                      <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
+                      <input
+                        type="date"
+                        className="jd-input"
+                        value={pToDate}
+                        onChange={(e) => setPToDate(e.target.value)}
+                        style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                      />
+                      {pToDate && (
+                        <button type="button" onClick={() => setPToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
                     <select
                       className="jd-input"
                       value={pStatusFilter}
@@ -1458,7 +1556,7 @@ export default function App() {
               <div className="jd-panel">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
                   <h4 style={{ margin: 0 }}>Project Tasks</h4>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "640px" }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                     <input
                       type="text"
                       className="jd-input"
@@ -1467,6 +1565,36 @@ export default function App() {
                       placeholder="Search by Task No, Location..."
                       style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                     />
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                      <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+                      <input
+                        type="date"
+                        className="jd-input"
+                        value={tFromDate}
+                        onChange={(e) => setTFromDate(e.target.value)}
+                        style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                      />
+                      {tFromDate && (
+                        <button type="button" onClick={() => setTFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                      <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
+                      <input
+                        type="date"
+                        className="jd-input"
+                        value={tToDate}
+                        onChange={(e) => setTToDate(e.target.value)}
+                        style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                      />
+                      {tToDate && (
+                        <button type="button" onClick={() => setTToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
                     <select
                       className="jd-input"
                       value={tStatusFilter}
