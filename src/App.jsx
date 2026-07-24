@@ -132,6 +132,7 @@ export default function App() {
   });
   const [view, setView] = useState("m-dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pChartStatusFilter, setPChartStatusFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState("");
@@ -810,7 +811,11 @@ export default function App() {
 
   const byProject = useMemo(() => {
     const map = {};
-    projectTasks.forEach((t) => {
+    const filteredTasks = pChartStatusFilter === "All"
+      ? projectTasks
+      : projectTasks.filter(t => statusOf(t.progress) === pChartStatusFilter);
+
+    filteredTasks.forEach((t) => {
       if (!t.project) return;
       const origKey = t.project.trim();
       const lowerKey = origKey.toLowerCase();
@@ -841,7 +846,7 @@ export default function App() {
         displayName: p.project
       };
     });
-  }, [projectTasks]);
+  }, [projectTasks, pChartStatusFilter]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
@@ -1204,6 +1209,21 @@ export default function App() {
             <StatCard label="Not started" value={pTotals.statusCounts["Not Started"]} color={STATUS_COLOR["Not Started"]} />
             <StatCard label="In progress" value={pTotals.statusCounts["In Progress"]} color={STATUS_COLOR["In Progress"]} />
             <StatCard label="Completed" value={pTotals.statusCounts.Completed} color={STATUS_COLOR.Completed} />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", marginTop: "10px", flexWrap: "wrap", gap: "12px" }}>
+            <h4 style={{ margin: 0, fontFamily: "'Oswald', sans-serif", fontSize: "14px", color: "var(--accent)" }}>Charts Preview Filter</h4>
+            <select
+              className="jd-input"
+              value={pChartStatusFilter}
+              onChange={(e) => setPChartStatusFilter(e.target.value)}
+              style={{ maxWidth: "220px", fontSize: "13px", padding: "6px 10px" }}
+            >
+              <option value="All">All Tasks</option>
+              <option value="Not Started">Not Started Tasks</option>
+              <option value="In Progress">In Progress Tasks</option>
+              <option value="Completed">Completed Tasks</option>
+            </select>
           </div>
 
           <div className="jd-charts">
