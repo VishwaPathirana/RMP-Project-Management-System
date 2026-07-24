@@ -36,6 +36,20 @@ const ASSIGNEE_CHART_COLORS = [
 ];
 
 const DEFAULT_NAMES = [
+  "WASTE WATER/CANTEEN/OTHERS",
+  "MILK SECTION",
+  "DC/LOW FAT SECTION",
+  "YARA",
+  "NEW OIL MILL",
+  "YARD A B C",
+  "WET A B C",
+  "Washrooms",
+  "Living Quarters",
+  "Creamed Coconut Plant",
+  "Mill Garden"
+];
+
+const DEFAULT_PROJECT_NAMES = [
   "Transformer project",
   "New section D Project",
   "New chiller press and milk tanks",
@@ -58,6 +72,16 @@ const DEFAULT_ASSIGNEES = [
   "SS Contractor",
   "Outsource",
   "JANITH"
+];
+
+const DEFAULT_PROJECT_ASSIGNEES = [
+  "Lakshan",
+  "Engineering",
+  "Procument",
+  "Production",
+  "Udara",
+  "thushara",
+  "asanka"
 ];
 
 function statusOf(progress) {
@@ -2114,7 +2138,7 @@ function PhotoViewerModal({ viewingData, onClose }) {
   );
 }
 
-function AssigneeSelector({ selected, onChange, readOnly }) {
+function AssigneeSelector({ selected, onChange, readOnly, defaultAssignees = DEFAULT_ASSIGNEES }) {
   const [customInput, setCustomInput] = useState("");
 
   const toggleAssignee = (name) => {
@@ -2162,7 +2186,7 @@ function AssigneeSelector({ selected, onChange, readOnly }) {
       {!readOnly && (
         <>
           <div className="jd-assignee-list">
-            {DEFAULT_ASSIGNEES.map((name) => {
+            {defaultAssignees.map((name) => {
               const isSelected = selected.includes(name);
               return (
                 <label key={name} className="jd-assignee-list-item">
@@ -2325,7 +2349,12 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
 
         <label className="jd-field-label">Assignee</label>
-        <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={readOnly} />
+        <AssigneeSelector
+          selected={selectedAssignees}
+          onChange={setSelectedAssignees}
+          readOnly={readOnly}
+          defaultAssignees={isMaintenance ? DEFAULT_ASSIGNEES : DEFAULT_PROJECT_ASSIGNEES}
+        />
 
         <label className="jd-field-label">Description</label>
         <textarea
@@ -2436,7 +2465,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 }
 
 function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, onPreviewPhoto }) {
-  const [selectedNameOption, setSelectedNameOption] = useState(DEFAULT_NAMES[0]);
+  const [selectedNameOption, setSelectedNameOption] = useState(DEFAULT_PROJECT_NAMES[0]);
   const [customNameInput, setCustomNameInput] = useState("");
   const [task, setTask] = useState("");
   const [location, setLocation] = useState("");
@@ -2498,7 +2527,7 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
           value={selectedNameOption}
           onChange={(e) => setSelectedNameOption(e.target.value)}
         >
-          {DEFAULT_NAMES.map((n) => (
+          {DEFAULT_PROJECT_NAMES.map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
           <option value="__custom__">Custom Name...</option>
@@ -2524,7 +2553,12 @@ function ProjectFormModal({ onClose, onSave, assigneeNames, userNames, tasks, on
         <datalist id="jd-proj-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
 
         <label className="jd-field-label">Assignee</label>
-        <AssigneeSelector selected={selectedAssignees} onChange={setSelectedAssignees} readOnly={false} />
+        <AssigneeSelector
+          selected={selectedAssignees}
+          onChange={setSelectedAssignees}
+          readOnly={false}
+          defaultAssignees={DEFAULT_PROJECT_ASSIGNEES}
+        />
 
         <label className="jd-field-label">Description</label>
         <textarea
