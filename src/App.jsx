@@ -455,7 +455,13 @@ export default function App() {
   }
 
   const maintenanceTasks = useMemo(() => tasks.filter(t => t.projectToken === "maintenance" && t.task !== "__init__"), [tasks]);
-  const projectTasks = useMemo(() => tasks.filter(t => t.projectToken !== "maintenance" && t.task !== "__init__"), [tasks]);
+  const projectTasks = useMemo(() => tasks.filter(t => 
+    t.projectToken !== "maintenance" && 
+    t.task !== "__init__" &&
+    t.task.toLowerCase() !== "main project" &&
+    t.task.toLowerCase() !== "main" &&
+    t.task.toLowerCase() !== (t.project || "").toLowerCase()
+  ), [tasks]);
   const projectsList = useMemo(() => {
     const seen = new Set();
     const list = [];
