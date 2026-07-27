@@ -2342,12 +2342,20 @@ export default function App() {
                     <thead>
                       <tr>
                         <th>Machinery Asset Name</th>
-                        <th style={{ textAlign: "right" }}>Action</th>
+                        <th>Breakdown Tasks Count</th>
+                        <th>Total Down Days</th>
+                        <th>Awaiting Analysis</th>
+                        <th>In Progress</th>
+                        <th>Ready to Begin Production</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredInventoryItemsList.map((item) => {
                         const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
+                        const downDays = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
+                        const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
+                        const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
+                        const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
 
                         return (
                           <tr key={item} onClick={() => setSelectedProject(item)}>
@@ -2357,10 +2365,28 @@ export default function App() {
                                 <strong>{item}</strong>
                               </div>
                             </td>
-                            <td style={{ textAlign: "right" }}>
-                              <button className="jd-chip-btn" style={{ width: "auto", padding: "4px 10px", fontSize: "12px", display: "inline-flex", alignItems: "center" }}>
-                                View Details ({tasksInItem.length})
-                              </button>
+                            <td>{tasksInItem.length} breakdown tasks</td>
+                            <td>{downDays} days</td>
+                            <td>
+                              {awaiting > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {awaiting}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {inProgress > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {inProgress}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {ready > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", background: "rgba(16, 185, 129, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {ready}
+                                </span>
+                              ) : "—"}
                             </td>
                           </tr>
                         );
@@ -2490,7 +2516,7 @@ export default function App() {
               </div>
 
               <div className="jd-table-container" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-                <table className="jd-table jd-table-click">
+                <table className="jd-table jd-table-click jd-table-divided">
                   <thead>
                     <tr>
                       <th style={{ width: "30%" }}>Brief Description</th>
@@ -3953,6 +3979,7 @@ html, body {
 .jd-two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .jd-table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
 .jd-table th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim); padding:8px 8px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel); z-index:10; }
+.jd-table-divided th:not(:first-child) { border-left:1px solid var(--border); padding-left:12px; }
 .jd-table-container { overflow:auto; max-height:calc(100vh - 330px); border:1px solid var(--border); border-radius:8px; background:var(--panel); }
 .jd-table-container::-webkit-scrollbar { width:6px; height:6px; }
 .jd-table-container::-webkit-scrollbar-track { background:transparent; }
