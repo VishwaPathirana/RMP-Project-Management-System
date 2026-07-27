@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
@@ -6,17 +6,17 @@ import {
   LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon
 } from "lucide-react";
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 
 const STATUS_COLOR = {
   "Not Started": "#6B7280",
   "In Progress": "#F2B705",
-  "Completed": "#3DA35D",
-  "Awaiting Operator Analysis": "#00A3E0",
-  "Escalated to Maintenance Supervisor": "#3DA35D",
-  "Maintenance in Progress": "#8A2BE2",
-  "Ready to Begin Production": "#D22B2B"
+  Completed: "#3DA35D",
+  "Awaiting Operator Analysis": "#3b82f6",
+  "Escalated to Maintenance Supervisor": "#10b981",
+  "Maintenance in Progress": "#8b5cf6",
+  "Ready to Begin Production": "#ef4444"
 };
 
 const CHART_COLORS = [
@@ -88,13 +88,7 @@ const DEFAULT_ASSIGNEES = [
   "ALL TEAM",
   "SS Contractor",
   "Outsource",
-  "JANITH",
-  "Jeremy Grue",
-  "Christian Caesar",
-  "Lydia Brunswick",
-  "Jerry Simon",
-  "Paul Marks",
-  "Connor Phelps"
+  "JANITH"
 ];
 
 const DEFAULT_PROJECT_ASSIGNEES = [
@@ -107,20 +101,16 @@ const DEFAULT_PROJECT_ASSIGNEES = [
   "asanka"
 ];
 
-function statusOf(progress) {
+function statusOf(progress, token = "") {
+  if (token === "inventory") {
+    if (progress >= 100) return "Ready to Begin Production";
+    if (progress >= 60) return "Maintenance in Progress";
+    if (progress >= 30) return "Escalated to Maintenance Supervisor";
+    return "Awaiting Operator Analysis";
+  }
   if (progress >= 100) return "Completed";
   if (progress > 0) return "In Progress";
   return "Not Started";
-}
-function taskStatusOf(t) {
-  if (t.projectToken === "inventory") {
-    const prog = Number(t.progress) || 0;
-    if (prog >= 100) return "Ready to Begin Production";
-    if (prog >= 75) return "Maintenance in Progress";
-    if (prog >= 50) return "Escalated to Maintenance Supervisor";
-    return "Awaiting Operator Analysis";
-  }
-  return statusOf(t.progress);
 }
 function addDays(dateStr, days) {
   if (!dateStr) return "";
@@ -275,7 +265,6 @@ export default function App() {
         let photos = [];
         let description = "";
         let subTasks = [];
-        let criticality = "";
         if (t.assignee && t.assignee.includes(" ||| ")) {
           const parts = t.assignee.split(" ||| ");
           location = parts[0] || "";
@@ -295,7 +284,6 @@ export default function App() {
               subTasks = [];
             }
           }
-          criticality = parts[5] || "";
         } else {
           location = t.assignee || "";
           assigneeName = "";
@@ -306,8 +294,7 @@ export default function App() {
           assigneeName,
           photos,
           description,
-          subTasks,
-          criticality
+          subTasks
         };
       });
       try {
@@ -415,15 +402,14 @@ export default function App() {
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
       // Combine location, assigneeName, photos, and description into assignee column, strip photos, description and client-only fields from dbRows
-      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, subTasks, criticality, ...row }) => {
+      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, subTasks, ...row }) => {
         const photoPayload = photos && photos.length ? JSON.stringify(photos) : "";
         const descPayload = description ? description.trim() : "";
         const subTasksPayload = subTasks && subTasks.length ? JSON.stringify(subTasks) : "";
-        const criticalityPayload = criticality || "";
         return {
           ...row,
           endDate: row.endDate && row.endDate.trim() ? row.endDate.trim() : null,
-          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload} ||| ${criticalityPayload}`
+          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload}`
         };
       });
 
@@ -904,12 +890,9 @@ export default function App() {
     let count = 0;
     inventoryTasks.forEach((t) => {
       count++;
-      const status = taskStatusOf(t);
-      if (c[status] !== undefined) {
-        c[status]++;
-      } else {
-        c["Awaiting Operator Analysis"]++;
-      }
+      const progressVal = Number(t.progress) || 0;
+      const status = statusOf(progressVal, "inventory");
+      c[status]++;
       const daysVal = Number(t.daysRequired);
       daysScope += isNaN(daysVal) ? 0 : daysVal;
     });
@@ -925,162 +908,47 @@ export default function App() {
     return inventoryTasks.filter((t) => t.endDate && t.endDate < today && Number(t.progress) < 100);
   }, [inventoryTasks]);
 
-  const invByItem = useMemo(() => {
-    const map = {};
-    const filteredTasks = invChartStatusFilter === "All"
-      ? inventoryTasks
-      : inventoryTasks.filter(t => taskStatusOf(t) === invChartStatusFilter);
-
-    filteredTasks.forEach((t) => {
-      if (!t.project) return;
-      const origKey = t.project.trim();
-      const lowerKey = origKey.toLowerCase();
-      if (!map[lowerKey]) {
-        map[lowerKey] = {
-          itemName: origKey,
-          tasks: 0,
-          days: 0,
-          progressSum: 0,
-          statusCounts: {
-            "Awaiting Operator Analysis": 0,
-            "Escalated to Maintenance Supervisor": 0,
-            "Maintenance in Progress": 0,
-            "Ready to Begin Production": 0
-          }
-        };
-      }
-
-      const daysVal = Number(t.daysRequired);
-      const progVal = Number(t.progress);
-
-      map[lowerKey].tasks++;
-      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
-      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
-
-      const status = taskStatusOf(t);
-      if (map[lowerKey].statusCounts[status] !== undefined) {
-        map[lowerKey].statusCounts[status]++;
-      } else {
-        map[lowerKey].statusCounts["Awaiting Operator Analysis"]++;
-      }
-    });
-    return Object.values(map).map((p) => {
-      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
-      return {
-        ...p,
-        avgProgress: isNaN(avg) ? 0 : avg,
-        displayName: p.itemName
-      };
-    });
-  }, [inventoryTasks, invChartStatusFilter]);
-
-  const invByStage = useMemo(() => {
+  const invByStageData = useMemo(() => {
     const stages = {
-      "01 - Breakdown": 0,
-      "02 - Escalation": 0,
-      "03 - Repair": 0,
-      "04 - Production": 0
+      "01-Breakdown": 0,
+      "02-Escalation": 0,
+      "03-Repair": 0,
+      "04-Production": 0
     };
-    const filteredTasks = invChartStatusFilter === "All"
-      ? inventoryTasks
-      : inventoryTasks.filter(t => taskStatusOf(t) === invChartStatusFilter);
-
-    filteredTasks.forEach(t => {
-      const status = taskStatusOf(t);
-      if (status === "Ready to Begin Production") stages["04 - Production"]++;
-      else if (status === "Maintenance in Progress") stages["03 - Repair"]++;
-      else if (status === "Escalated to Maintenance Supervisor") stages["02 - Escalation"]++;
-      else stages["01 - Breakdown"]++;
+    inventoryTasks.forEach((t) => {
+      const status = statusOf(t.progress, "inventory");
+      if (status === "Awaiting Operator Analysis") stages["01-Breakdown"]++;
+      else if (status === "Escalated to Maintenance Supervisor") stages["02-Escalation"]++;
+      else if (status === "Maintenance in Progress") stages["03-Repair"]++;
+      else if (status === "Ready to Begin Production") stages["04-Production"]++;
     });
-    return Object.entries(stages).map(([stageName, count]) => ({
-      stageName,
-      count
+    return Object.entries(stages).map(([stage, count]) => ({
+      stageName: stage,
+      Count: count
     }));
-  }, [inventoryTasks, invChartStatusFilter]);
+  }, [inventoryTasks]);
 
-  const invByStatus = useMemo(() => {
+  const invByStatusData = useMemo(() => {
     const counts = {
       "Awaiting Operator Analysis": 0,
       "Escalated to Maintenance Supervisor": 0,
       "Maintenance in Progress": 0,
       "Ready to Begin Production": 0
     };
-    const filteredTasks = invChartStatusFilter === "All"
-      ? inventoryTasks
-      : inventoryTasks.filter(t => taskStatusOf(t) === invChartStatusFilter);
-
-    filteredTasks.forEach(t => {
-      const status = taskStatusOf(t);
-      if (counts[status] !== undefined) {
-        counts[status]++;
-      } else {
-        counts["Awaiting Operator Analysis"]++;
-      }
-    });
-    return Object.entries(counts).map(([name, value]) => ({
-      name,
-      value
-    })).filter(x => x.value > 0);
-  }, [inventoryTasks, invChartStatusFilter]);
-
-  const invByAssignee = useMemo(() => {
-    const today = todayStr();
-    const map = {};
     inventoryTasks.forEach((t) => {
-      const assignees = t.assigneeName
-        ? t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean)
-        : ["Unassigned"];
-
-      assignees.forEach((assignee) => {
-        const origKey = assignee;
-        const lowerKey = origKey.toLowerCase();
-        if (!map[lowerKey]) {
-          map[lowerKey] = {
-            assignee: origKey,
-            tasks: 0,
-            completed: 0,
-            inProgress: 0,
-            notStarted: 0,
-            overdue: 0,
-            days: 0,
-            progressSum: 0
-          };
-        }
-
-        const daysVal = Number(t.daysRequired);
-        const progVal = Number(t.progress) || 0;
-
-        map[lowerKey].tasks++;
-        map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
-        map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
-
-        const status = taskStatusOf(t);
-        if (status === "Ready to Begin Production") {
-          map[lowerKey].completed++;
-        } else if (status === "Maintenance in Progress" || status === "Escalated to Maintenance Supervisor") {
-          map[lowerKey].inProgress++;
-        } else {
-          map[lowerKey].notStarted++;
-        }
-
-        if (t.endDate && t.endDate < today && status !== "Ready to Begin Production") {
-          map[lowerKey].overdue++;
-        }
-      });
+      const status = statusOf(t.progress, "inventory");
+      counts[status]++;
     });
-    return Object.values(map).map((p) => {
-      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
-      return {
-        ...p,
-        avgProgress: isNaN(avg) ? 0 : avg
-      };
-    });
+    return Object.entries(counts).map(([status, count]) => ({
+      name: status,
+      value: count
+    })).filter(item => item.value > 0);
   }, [inventoryTasks]);
 
   const filteredInventoryTasks = useMemo(() => {
     let list = inventoryTasks;
     if (invStatusFilter !== "All") {
-      list = list.filter(t => taskStatusOf(t) === invStatusFilter);
+      list = list.filter(t => statusOf(t.progress, "inventory") === invStatusFilter);
     }
     if (invCreatorFilter !== "All") {
       list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === invCreatorFilter.toLowerCase());
@@ -2135,105 +2003,98 @@ export default function App() {
 
       {view === "inv-dashboard" && (
         <main className="jd-main">
-          <div className="jd-stats">
-            <StatCard label="Total Down Days" value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
-            <StatCard label="Awaiting Analysis" value={invTotals.statusCounts["Awaiting Operator Analysis"]} color="#00A3E0" />
-            <StatCard label="Escalated" value={invTotals.statusCounts["Escalated to Maintenance Supervisor"]} color="#3DA35D" />
-            <StatCard label="In Progress" value={invTotals.statusCounts["Maintenance in Progress"]} color="#8A2BE2" />
-            <StatCard label="Ready to Production" value={invTotals.statusCounts["Ready to Begin Production"]} color="#D22B2B" />
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", marginTop: "10px", flexWrap: "wrap", gap: "12px" }}>
-            <h4 style={{ margin: 0, fontFamily: "'Oswald', sans-serif", fontSize: "14px", color: "var(--accent)" }}>Charts Preview Filter</h4>
-            <select
-              className="jd-input"
-              value={invChartStatusFilter}
-              onChange={(e) => setInvChartStatusFilter(e.target.value)}
-              style={{ maxWidth: "220px", fontSize: "13px", padding: "6px 10px" }}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Awaiting Operator Analysis">Awaiting Operator Analysis</option>
-              <option value="Escalated to Maintenance Supervisor">Escalated to Maintenance Supervisor</option>
-              <option value="Maintenance in Progress">Maintenance in Progress</option>
-              <option value="Ready to Begin Production">Ready to Begin Production</option>
-            </select>
-          </div>
-
-          <div className="jd-charts" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px", marginBottom: "16px" }}>
-            <div className="jd-panel" style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "260px" }}>
-              <h4 style={{ margin: "0 0 16px 0", textAlign: "center" }}>Active Tasks</h4>
-              <div style={{ fontSize: "72px", fontWeight: "700", color: "var(--accent)", lineHeight: "1" }}>
-                {inventoryTasks.filter(t => taskStatusOf(t) !== "Ready to Begin Production").length}
+          {/* Top Panel matching the layout of the image */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: "16px", marginBottom: "20px" }} className="jd-inventory-header-grid">
+            
+            {/* Active Tasks Panel */}
+            <div className="jd-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "250px", textAlign: "center" }}>
+              <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Tasks</h4>
+              <div style={{ fontSize: "96px", fontWeight: "700", color: "#7EA754", lineHeight: "1", fontFamily: "'Oswald', sans-serif" }}>
+                {invTotals.totalTasks}
               </div>
             </div>
 
-            <div className="jd-panel">
-              <h4>By Stage</h4>
-              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+            {/* By Stage Bar Chart */}
+            <div className="jd-panel" style={{ minHeight: "250px" }}>
+              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>By Stage</h4>
+              <div style={{ position: "relative", width: "100%", height: "200px" }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={invByStage}>
-                    <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <BarChart data={invByStageData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
                     <XAxis dataKey="stageName" tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
-                    <YAxis tick={{ fill: "var(--text)", fontSize: 11 }} allowDecimals={false} />
+                    <YAxis type="number" allowDecimals={false} tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
                     <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Bar dataKey="count" fill="#82ca9d" radius={[4, 4, 0, 0]} barSize={30} />
+                    <Bar dataKey="Count" fill="#7EA754" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="jd-panel">
-              <h4>By Status</h4>
-              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+            {/* By Status Donut Chart */}
+            <div className="jd-panel" style={{ minHeight: "250px" }}>
+              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>By Status</h4>
+              <div style={{ position: "relative", width: "100%", height: "200px" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={invByStatus}
+                      data={invByStatusData}
                       dataKey="value"
                       nameKey="name"
-                      innerRadius={48}
+                      innerRadius={50}
                       outerRadius={75}
                       paddingAngle={3}
                       stroke="none"
                     >
-                      {invByStatus.map((entry, index) => {
-                        const colors = {
-                          "Awaiting Operator Analysis": "#00A3E0",
-                          "Escalated to Maintenance Supervisor": "#3DA35D",
-                          "Maintenance in Progress": "#8A2BE2",
-                          "Ready to Begin Production": "#D22B2B"
-                        };
-                        return <Cell key={`cell-${index}`} fill={colors[entry.name] || "#9BA1AA"} />;
-                      })}
+                      {invByStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={STATUS_COLOR[entry.name]} />
+                      ))}
                     </Pie>
                     <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "10px", color: "var(--text)", paddingLeft: "10px" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
+
           </div>
 
           <div className="jd-panel">
-            <h4><AlertTriangle size={14} /> Overdue Inventory Tasks ({invOverdue.length})</h4>
+            <h4><AlertTriangle size={14} /> Overdue Breakdown Maintenance Tasks ({invOverdue.length})</h4>
             {invOverdue.length === 0 ? (
               <p className="jd-empty-note">Nothing overdue right now.</p>
             ) : (
               <table className="jd-table">
                 <thead>
-                  <tr><th>Task No</th><th>Item Name</th><th>Location</th><th>Assignee</th><th>End date</th><th>Status</th></tr>
+                  <tr>
+                    <th>Task No</th>
+                    <th>Asset Name</th>
+                    <th>Criticality Level</th>
+                    <th>Assignee</th>
+                    <th>Date of Breakdown</th>
+                    <th>Status</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {invOverdue.map((t) => (
                     <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
-                      <td>{t.location || "—"}</td>
-                      <td>{t.assigneeName || "—"}</td>
-                      <td className="jd-mono">{fmt(t.endDate)}</td>
                       <td>
-                        <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[taskStatusOf(t)] }}>
-                          {taskStatusOf(t)}
+                        <span
+                          className="jd-badge"
+                          style={{
+                            background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
+                            color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
+                            fontWeight: "500"
+                          }}
+                        >
+                          {t.location || "C: Little to No Financial Impact"}
+                        </span>
+                      </td>
+                      <td>{t.assigneeName || "—"}</td>
+                      <td className="jd-mono">{fmt(t.startDate)}</td>
+                      <td>
+                        <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
+                          {statusOf(t.progress, "inventory")}
                         </span>
                       </td>
                     </tr>
@@ -2242,61 +2103,21 @@ export default function App() {
               </table>
             )}
           </div>
-
-          <div className="jd-two-col">
-            <div className="jd-panel">
-              <h4>By assignee</h4>
-              <table className="jd-table">
-                <thead>
-                  <tr>
-                    <th>Assignee</th>
-                    <th>All</th>
-                    <th>Ready to Production</th>
-                    <th>In Progress</th>
-                    <th>Overdue</th>
-                    <th>Days engaged</th>
-                    <th>Avg progress</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invByAssignee.map((p) => (
-                    <tr key={p.assignee}>
-                      <td><strong>{p.assignee}</strong></td>
-                      <td><span className="jd-badge" style={{ background: "var(--panel-2)", color: "var(--text)" }}>{p.tasks}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
-                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
-                      <td>{p.days}</td>
-                      <td><ProgressBar value={p.avgProgress} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </main>
       )}
 
       {view === "inventory" && (
         <main className="jd-main">
-          <div className="jd-stats">
-            <StatCard label="Total Inventory Tasks" value={inventoryTasks.length} />
-            <StatCard label="Days Scope" value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
-            <StatCard label="Awaiting Analysis" value={inventoryTasks.filter(t => taskStatusOf(t) === "Awaiting Operator Analysis").length} color="#00A3E0" />
-            <StatCard label="In Progress" value={inventoryTasks.filter(t => taskStatusOf(t) === "Maintenance in Progress").length} color="#8A2BE2" />
-            <StatCard label="Ready to Production" value={inventoryTasks.filter(t => taskStatusOf(t) === "Ready to Begin Production").length} color="#D22B2B" />
-          </div>
-
           <div className="jd-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
-              <h4 style={{ margin: 0 }}>Inventory Tasks</h4>
+              <h4 style={{ margin: 0 }}>Active Breakdown Maintenance Tasks</h4>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                 <input
                   type="text"
                   className="jd-input"
                   value={invSearch}
                   onChange={(e) => setInvSearch(e.target.value)}
-                  placeholder="Search by Task No, Item, Location..."
+                  placeholder="Search by Brief Description, Asset, Criticality..."
                   style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                 />
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
@@ -2364,10 +2185,11 @@ export default function App() {
               <table className="jd-table jd-table-click">
                 <thead>
                   <tr>
+                    <th>Asset Name</th>
                     <th>Brief Description</th>
                     <th>Status</th>
                     <th>Assignee</th>
-                    <th>Date and Time of Breakdown</th>
+                    <th>Date &amp; Time of Breakdown</th>
                     <th>Fault Reason</th>
                     <th>Total Down Days</th>
                     <th>Criticality Level</th>
@@ -2375,62 +2197,68 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(
-                    filteredInventoryTasks.reduce((acc, t) => {
-                      const asset = t.project || "Unassigned Asset";
-                      if (!acc[asset]) acc[asset] = [];
-                      acc[asset].push(t);
-                      return acc;
-                    }, {})
-                  ).map(([assetName, tasks]) => (
-                    <Fragment key={assetName}>
-                      <tr style={{ background: "var(--panel-2)", pointerEvents: "none" }}>
-                        <td colSpan={8} style={{ padding: "10px 14px", fontWeight: "600", fontSize: "13px" }}>
-                          📁 {assetName} <span style={{ fontSize: "11px", color: "var(--text-dim)", marginLeft: "8px", fontWeight: "normal" }}>(Item Count: {tasks.length})</span>
+                  {filteredInventoryTasks.map((t) => {
+                    const isMIP = statusOf(t.progress, "inventory") === "Maintenance in Progress";
+                    const isEsc = statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor";
+                    const taskPhotos = t.photos || [];
+                    return (
+                      <tr
+                        key={t.id}
+                        onClick={() => handleEditTaskSelect(t)}
+                        style={{
+                          background: isMIP ? "rgba(59, 130, 246, 0.08)" : isEsc ? "rgba(245, 158, 11, 0.08)" : "",
+                          borderLeft: isMIP ? "4px solid #3b82f6" : isEsc ? "4px solid #f59e0b" : ""
+                        }}
+                      >
+                        <td><strong>{t.project}</strong></td>
+                        <td>
+                          <strong>{t.task}</strong>
+                          {t.subTasks && t.subTasks.length > 0 && (
+                            <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                              {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                            </div>
+                          )}
+                          {taskPhotos.length > 0 && (
+                            <div
+                              style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                              }}
+                            >
+                              <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
+                            </div>
+                          )}
                         </td>
+                        <td>
+                          <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
+                            {statusOf(t.progress, "inventory")}
+                          </span>
+                        </td>
+                        <td>{t.assigneeName || "—"}</td>
+                        <td className="jd-mono">{fmt(t.startDate)}</td>
+                        <td>{t.description || "—"}</td>
+                        <td>{t.daysRequired || "0"}</td>
+                        <td>
+                          <span
+                            className="jd-badge"
+                            style={{
+                              background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
+                              color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
+                              fontWeight: "500"
+                            }}
+                          >
+                            {t.location || "C: Little to No Financial Impact"}
+                          </span>
+                        </td>
+                        <td className="jd-mono">#{t.id}</td>
                       </tr>
-                      {tasks.map((t) => {
-                        const overdueRow = t.endDate && t.endDate < todayStr() && taskStatusOf(t) !== "Ready to Begin Production";
-                        const criticalityClass = t.criticality?.startsWith("A:")
-                          ? "criticality-high"
-                          : t.criticality?.startsWith("B:")
-                          ? "criticality-medium"
-                          : "criticality-low";
-
-                        return (
-                          <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
-                            <td style={{ paddingLeft: "32px" }}>
-                              <strong>{t.task}</strong>
-                              {t.subTasks && t.subTasks.length > 0 && (
-                                <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                                  {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                                </div>
-                              )}
-                            </td>
-                            <td>
-                              <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[taskStatusOf(t)] }}>
-                                {taskStatusOf(t)}
-                              </span>
-                            </td>
-                            <td>{t.assigneeName || "—"}</td>
-                            <td className="jd-mono">{t.startDate ? fmt(t.startDate) : "—"}</td>
-                            <td>{t.description || "—"}</td>
-                            <td>{t.daysRequired || "—"}</td>
-                            <td>
-                              <span className={`criticality-badge ${criticalityClass}`}>
-                                {t.criticality || "C: Little to No Financial Impact"}
-                              </span>
-                            </td>
-                            <td className="jd-mono">{t.id}</td>
-                          </tr>
-                        );
-                      })}
-                    </Fragment>
-                  ))}
+                    );
+                  })}
                   {filteredInventoryTasks.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
-                        No inventory tasks found.
+                      <td colSpan={9} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                        No breakdown tasks found.
                       </td>
                     </tr>
                   )}
@@ -2973,7 +2801,11 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   });
 
   const [task, setTask] = useState(initial?.task || "");
-  const [location, setLocation] = useState(initial?.location || "");
+  const [location, setLocation] = useState(() => {
+    if (initial) return initial.location || "";
+    if (type === "inventory") return "C: Little to No Financial Impact";
+    return "";
+  });
   const [selectedAssignees, setSelectedAssignees] = useState(() => {
     if (!initial?.assigneeName) return [];
     return initial.assigneeName.split(",").map(s => s.trim()).filter(Boolean);
@@ -2993,7 +2825,6 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const [description, setDescription] = useState(initial?.description || "");
   const [subTasks, setSubTasks] = useState(initial?.subTasks || []);
   const [subTaskInput, setSubTaskInput] = useState("");
-  const [criticality, setCriticality] = useState(initial?.criticality || "C: Little to No Financial Impact");
 
   const handleToggleSubTask = (idx) => {
     if (readOnly) return;
@@ -3060,8 +2891,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         progress: Number(progress),
         photos,
         description,
-        subTasks,
-        criticality
+        subTasks
       },
       initial?.id
     );
@@ -3115,41 +2945,42 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         <label className="jd-field-label">Task Name</label>
         <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
 
-        <label className="jd-field-label">Location</label>
-        <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
-        <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
-
-        <label className="jd-field-label">Assignee</label>
-        <AssigneeSelector
-          selected={selectedAssignees}
-          onChange={setSelectedAssignees}
-          readOnly={readOnly}
-          defaultAssignees={type === "inventory" || type === "maintenance" ? DEFAULT_ASSIGNEES : DEFAULT_PROJECT_ASSIGNEES}
-        />
-
-        {type === "inventory" && (
+        {type === "inventory" ? (
           <>
             <label className="jd-field-label">Criticality Level</label>
             <select
               className="jd-input"
-              value={criticality}
-              onChange={(e) => setCriticality(e.target.value)}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               disabled={readOnly}
-              style={{ marginBottom: "14px" }}
             >
               <option value="A: > 20% Financial Impact">A: &gt; 20% Financial Impact</option>
               <option value="B: < 20% Financial Impact">B: &lt; 20% Financial Impact</option>
               <option value="C: Little to No Financial Impact">C: Little to No Financial Impact</option>
             </select>
           </>
+        ) : (
+          <>
+            <label className="jd-field-label">Location</label>
+            <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
+            <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
+          </>
         )}
+
+        <label className="jd-field-label">Assignee</label>
+        <AssigneeSelector
+          selected={selectedAssignees}
+          onChange={setSelectedAssignees}
+          readOnly={readOnly}
+          defaultAssignees={type === "maintenance" || type === "inventory" ? DEFAULT_ASSIGNEES : DEFAULT_PROJECT_ASSIGNEES}
+        />
 
         <label className="jd-field-label">{type === "inventory" ? "Fault Reason" : "Description"}</label>
         <textarea
           className="jd-input"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder={type === "inventory" ? "Enter fault details reason..." : "Enter task description details..."}
+          placeholder={type === "inventory" ? "Enter breakdown fault reason..." : "Enter task description details..."}
           disabled={readOnly}
           style={{ minHeight: "80px", resize: "vertical" }}
         />
@@ -3245,14 +3076,34 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
         </div>
 
-        <label className="jd-field-label">Progress: {progress}%</label>
-        <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" disabled={readOnly} />
-        {!readOnly && onQuickProgress && (
-          <div className="jd-quick-row">
-            {[0, 25, 50, 75, 100].map((p) => (
-              <button type="button" key={p} className="jd-chip-btn" onClick={() => { setProgress(p); onQuickProgress(p); }}>{p}%</button>
-            ))}
-          </div>
+        {type === "inventory" ? (
+          <>
+            <label className="jd-field-label">Status</label>
+            <select
+              className="jd-input"
+              value={progress}
+              onChange={(e) => setProgress(Number(e.target.value))}
+              disabled={readOnly}
+              style={{ marginBottom: "14px" }}
+            >
+              <option value={0}>Awaiting Operator Analysis</option>
+              <option value={30}>Escalated to Maintenance Supervisor</option>
+              <option value={60}>Maintenance in Progress</option>
+              <option value={100}>Ready to Begin Production</option>
+            </select>
+          </>
+        ) : (
+          <>
+            <label className="jd-field-label">Progress: {progress}%</label>
+            <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" disabled={readOnly} />
+            {!readOnly && onQuickProgress && (
+              <div className="jd-quick-row" style={{ marginBottom: "14px" }}>
+                {[0, 25, 50, 75, 100].map((p) => (
+                  <button type="button" key={p} className="jd-chip-btn" onClick={() => { setProgress(p); onQuickProgress(p); }}>{p}%</button>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         <label className="jd-field-label"><Camera size={12} /> Photos ({photos.length})</label>
@@ -3755,11 +3606,6 @@ html, body {
 .jd-progress-label { font-size:11px; color:var(--text-dim); width:32px; }
 
 .jd-status-pill { font-size:10.5px; font-weight:600; text-transform:uppercase; padding:3px 8px; border-radius:4px; color:var(--c); background:color-mix(in srgb, var(--c) 16%, transparent); border:1px solid color-mix(in srgb, var(--c) 45%, transparent); }
-
-.criticality-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; display: inline-block; }
-.criticality-high { background: rgba(210, 43, 43, 0.15); color: #D22B2B; border: 1px solid rgba(210, 43, 43, 0.3); }
-.criticality-medium { background: rgba(242, 183, 5, 0.15); color: #F2B705; border: 1px solid rgba(242, 183, 5, 0.3); }
-.criticality-low { background: rgba(107, 114, 128, 0.15); color: #9BA1AA; border: 1px solid rgba(107, 114, 128, 0.3); }
 
 .jd-filters { display:flex; gap:10px; }
 .jd-input, select.jd-input { width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:9px 10px; font-size:13.5px; font-family:inherit; outline:none; }
