@@ -226,6 +226,7 @@ export default function App() {
     }
   }, [view, selectedProject]);
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showInvForm, setShowInvForm] = useState(false);
   const [formType, setFormType] = useState("maintenance");
   const [mSearch, setMSearch] = useState("");
   const [pSearch, setPSearch] = useState("");
@@ -2219,10 +2220,7 @@ export default function App() {
                   {session.role === "management" && (
                     <button
                       className="jd-primary-btn"
-                      onClick={() => {
-                        const name = prompt("Enter new Machinery Asset Name:");
-                        if (name) handleCreateInventoryItem(name);
-                      }}
+                      onClick={() => setShowInvForm(true)}
                     >
                       <Plus size={14} /> Add Machinery Asset
                     </button>
@@ -2627,6 +2625,17 @@ export default function App() {
             setSelectedProject(taskData.project);
             setShowProjectForm(false);
           }}
+        />
+      )}
+
+      {showInvForm && session.role === "management" && (
+        <AddMachineryAssetModal
+          onClose={() => setShowInvForm(false)}
+          onSave={async (name) => {
+            await handleCreateInventoryItem(name);
+            setShowInvForm(false);
+          }}
+          tasks={tasks}
         />
       )}
 
@@ -3489,6 +3498,55 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
               <button type="submit" className="jd-primary-btn" disabled={uploading}>{initial ? "Save changes" : "Add task"}</button>
             </>
           )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AddMachineryAssetModal({ onClose, onSave, tasks }) {
+  const [assetName, setAssetName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function submit() {
+    const trimmed = assetName.trim();
+    if (!trimmed) {
+      alert("Please enter a Machinery Asset Name.");
+      return;
+    }
+    const exists = tasks.some(
+      (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      alert("This Machinery Asset already exists!");
+      return;
+    }
+    setSaving(true);
+    onSave(trimmed).finally(() => setSaving(false));
+  }
+
+  return (
+    <div className="jd-modal-overlay" onClick={onClose}>
+      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <div className="jd-modal-head">
+          <h3>Add Machinery Asset</h3>
+          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <label className="jd-field-label">Asset Name</label>
+        <input
+          className="jd-input"
+          value={assetName}
+          onChange={(e) => setAssetName(e.target.value)}
+          placeholder="e.g. Lathe Machine A1"
+          autoFocus
+        />
+
+        <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
+          <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="jd-primary-btn" disabled={saving}>
+            {saving ? "Adding..." : "Add Asset"}
+          </button>
         </div>
       </form>
     </div>
