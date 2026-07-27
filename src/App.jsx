@@ -126,6 +126,34 @@ function fmt(dateStr) {
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
+function AssigneeAvatar({ name }) {
+  if (!name) return null;
+  const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+  const color = colors[Math.abs(hash) % colors.length];
+  return (
+    <div style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "24px",
+      height: "24px",
+      borderRadius: "50%",
+      background: color,
+      color: "#fff",
+      fontSize: "11px",
+      fontWeight: "600",
+      marginRight: "8px",
+      flexShrink: 0
+    }}>
+      {initials}
+    </div>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -248,6 +276,7 @@ export default function App() {
   const [invCreatorFilter, setInvCreatorFilter] = useState("All");
   const [invFromDate, setInvFromDate] = useState("");
   const [invToDate, setInvToDate] = useState("");
+  const [collapsedAssets, setCollapsedAssets] = useState({});
   const [err, setErr] = useState("");
   const [viewingPhotos, setViewingPhotos] = useState(null);
 
@@ -972,6 +1001,18 @@ export default function App() {
     }
     return list;
   }, [inventoryTasks, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
+
+  const groupedInventory = useMemo(() => {
+    const groups = {};
+    filteredInventoryTasks.forEach((t) => {
+      const asset = t.project || "Unassigned Asset";
+      if (!groups[asset]) {
+        groups[asset] = [];
+      }
+      groups[asset].push(t);
+    });
+    return groups;
+  }, [filteredInventoryTasks]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
@@ -2181,15 +2222,25 @@ export default function App() {
               </div>
             </div>
 
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "6px 0 14px", fontSize: "12px", color: "var(--text-dim)", flexWrap: "wrap", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <span>Grouped By: <strong style={{ color: "var(--accent)" }}>Asset Name</strong> <span style={{ color: "var(--accent)", textDecoration: "underline", cursor: "pointer", marginLeft: "4px", fontSize: "11px" }}>Edit Grouping</span></span>
+              </div>
+              <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                <span>Row Height: <strong style={{ color: "var(--accent)" }}>===</strong></span>
+                <span>Total Assets: <strong>{Object.keys(groupedInventory).length}</strong></span>
+                <span>Total Tasks: <strong>{filteredInventoryTasks.length}</strong></span>
+              </div>
+            </div>
+
             <div className="jd-table-container">
-              <table className="jd-table jd-table-click">
+              <table className="jd-table">
                 <thead>
                   <tr>
-                    <th>Asset Name</th>
-                    <th>Brief Description</th>
+                    <th style={{ paddingLeft: "16px" }}>Brief Description</th>
                     <th>Status</th>
                     <th>Assignee</th>
-                    <th>Date &amp; Time of Breakdown</th>
+                    <th>Date and Time of Breakdown</th>
                     <th>Fault Reason</th>
                     <th>Total Down Days</th>
                     <th>Criticality Level</th>
@@ -2197,67 +2248,143 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInventoryTasks.map((t) => {
-                    const isMIP = statusOf(t.progress, "inventory") === "Maintenance in Progress";
-                    const isEsc = statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor";
-                    const taskPhotos = t.photos || [];
+                  {Object.entries(groupedInventory).map(([assetName, tasks]) => {
+                    const isCollapsed = !!collapsedAssets[assetName];
                     return (
-                      <tr
-                        key={t.id}
-                        onClick={() => handleEditTaskSelect(t)}
-                        style={{
-                          background: isMIP ? "rgba(59, 130, 246, 0.08)" : isEsc ? "rgba(245, 158, 11, 0.08)" : "",
-                          borderLeft: isMIP ? "4px solid #3b82f6" : isEsc ? "4px solid #f59e0b" : ""
-                        }}
-                      >
-                        <td><strong>{t.project}</strong></td>
-                        <td>
-                          <strong>{t.task}</strong>
-                          {t.subTasks && t.subTasks.length > 0 && (
-                            <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                              {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                            </div>
-                          )}
-                          {taskPhotos.length > 0 && (
-                            <div
-                              style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                      <tr key={assetName} style={{ display: "contents" }}>
+                        {/* Parent Group Header Row */}
+                        <tr
+                          onClick={() => setCollapsedAssets(prev => ({ ...prev, [assetName]: !isCollapsed }))}
+                          style={{
+                            background: "var(--panel-2)",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                            borderBottom: "1px solid var(--border)"
+                          }}
+                        >
+                          <td colSpan={8} style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{
+                              display: "inline-flex",
+                              transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s",
+                              fontSize: "9px",
+                              color: "var(--text-dim)"
+                            }}>
+                              ▼
+                            </span>
+                            <span style={{ fontSize: "13px" }}>📁</span>
+                            <span style={{ fontSize: "13px", color: "var(--text)" }}>{assetName}</span>
+                            <span
+                              className="jd-badge"
+                              style={{
+                                background: "rgba(242,100,48,0.12)",
+                                color: "var(--accent)",
+                                fontSize: "11px",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                fontWeight: "normal",
+                                marginLeft: "8px"
                               }}
                             >
-                              <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
-                            {statusOf(t.progress, "inventory")}
-                          </span>
-                        </td>
-                        <td>{t.assigneeName || "—"}</td>
-                        <td className="jd-mono">{fmt(t.startDate)}</td>
-                        <td>{t.description || "—"}</td>
-                        <td>{t.daysRequired || "0"}</td>
-                        <td>
-                          <span
-                            className="jd-badge"
-                            style={{
-                              background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
-                              color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
-                              fontWeight: "500"
-                            }}
-                          >
-                            {t.location || "C: Little to No Financial Impact"}
-                          </span>
-                        </td>
-                        <td className="jd-mono">#{t.id}</td>
+                              Item Count: {tasks.length}
+                            </span>
+                          </td>
+                        </tr>
+
+                        {/* Child Rows */}
+                        {!isCollapsed && tasks.map((t) => {
+                          const isMIP = statusOf(t.progress, "inventory") === "Maintenance in Progress";
+                          const isEsc = statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor";
+                          const isReady = statusOf(t.progress, "inventory") === "Ready to Begin Production";
+                          const isAwaiting = statusOf(t.progress, "inventory") === "Awaiting Operator Analysis";
+                          const taskPhotos = t.photos || [];
+
+                          let rowBg = "";
+                          let leftBorder = "";
+                          if (isMIP) {
+                            rowBg = "rgba(59, 130, 246, 0.08)";
+                            leftBorder = "4px solid #3b82f6";
+                          } else if (isEsc) {
+                            rowBg = "rgba(245, 158, 11, 0.08)";
+                            leftBorder = "4px solid #f59e0b";
+                          } else if (isReady) {
+                            rowBg = "rgba(16, 185, 129, 0.08)";
+                            leftBorder = "4px solid #10b981";
+                          } else if (isAwaiting) {
+                            rowBg = "rgba(107, 114, 128, 0.08)";
+                            leftBorder = "4px solid #6b7280";
+                          }
+
+                          return (
+                            <tr
+                              key={t.id}
+                              onClick={() => handleEditTaskSelect(t)}
+                              style={{
+                                background: rowBg,
+                                borderLeft: leftBorder,
+                                cursor: "pointer",
+                                transition: "background 0.2s"
+                              }}
+                              className="jd-inventory-child-row"
+                            >
+                              <td style={{ paddingLeft: "32px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ fontSize: "13px" }}>📄</span>
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                  <strong>{t.task}</strong>
+                                  {t.subTasks && t.subTasks.length > 0 && (
+                                    <span style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                      {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                                    </span>
+                                  )}
+                                  {taskPhotos.length > 0 && (
+                                    <div
+                                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                                      }}
+                                    >
+                                      <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
+                                  {statusOf(t.progress, "inventory")}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", alignItems: "center" }}>
+                                  <AssigneeAvatar name={t.assigneeName} />
+                                  <span>{t.assigneeName || "—"}</span>
+                                </div>
+                              </td>
+                              <td className="jd-mono">{fmt(t.startDate)}</td>
+                              <td>{t.description || "—"}</td>
+                              <td>{t.daysRequired || "0"}</td>
+                              <td>
+                                <span
+                                  className="jd-badge"
+                                  style={{
+                                    background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
+                                    color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
+                                    fontWeight: "500"
+                                  }}
+                                >
+                                  {t.location || "C: Little to No Financial Impact"}
+                                </span>
+                              </td>
+                              <td className="jd-mono">#{t.id}</td>
+                            </tr>
+                          );
+                        })}
                       </tr>
                     );
                   })}
                   {filteredInventoryTasks.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                      <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
                         No breakdown tasks found.
                       </td>
                     </tr>
