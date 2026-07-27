@@ -566,6 +566,17 @@ export default function App() {
     setSelectedProject(trimmedName);
   }
 
+  async function handleDeleteInventoryItem(assetName) {
+    const tasksToDelete = tasks.filter(
+      (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === assetName.toLowerCase()
+    );
+    if (!window.confirm(`Delete all ${tasksToDelete.filter(t => t.task !== "__init__").length} breakdown task(s) for "${assetName}"? This cannot be undone.`)) return;
+    const nextList = tasks.filter(
+      (t) => !(t.projectToken === "inventory" && t.project && t.project.toLowerCase() === assetName.toLowerCase())
+    );
+    await saveTasks(nextList);
+  }
+
   function handleEditTaskSelect(t) {
     setFormType(t.projectToken);
     setEditTask(t);
@@ -2230,6 +2241,7 @@ export default function App() {
                         <th>Awaiting Analysis</th>
                         <th>In Progress</th>
                         <th>Ready to Begin Production</th>
+                        {session.role === "management" && <th style={{ width: "50px" }}></th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -2271,7 +2283,19 @@ export default function App() {
                                 </span>
                               ) : "—"}
                             </td>
-                          </tr>
+                             {session.role === "management" && (
+                               <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+                                 <button
+                                   type="button"
+                                   title="Delete all tasks for this machinery asset"
+                                   style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
+                                   onClick={() => handleDeleteInventoryItem(item)}
+                                 >
+                                   <Trash2 size={14} />
+                                 </button>
+                               </td>
+                             )}
+                           </tr>
                         );
                       })}
                     </tbody>
@@ -2410,6 +2434,7 @@ export default function App() {
                       <th>Total Down Days</th>
                       <th>Criticality Level</th>
                       <th>Id</th>
+                      {session.role === "management" && <th style={{ width: "40px" }}></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -2417,7 +2442,7 @@ export default function App() {
                       <Fragment key={assetName}>
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
-                          <td colSpan={8} style={{ padding: "10px 14px" }}>
+                          <td colSpan={session.role === "management" ? 9 : 8} style={{ padding: "10px 14px" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
@@ -2509,6 +2534,22 @@ export default function App() {
                                 </span>
                               </td>
                               <td className="jd-mono">#{t.id}</td>
+                              {session.role === "management" && (
+                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+                                  <button
+                                    type="button"
+                                    title="Delete this breakdown task"
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
+                                    onClick={() => {
+                                      if (window.confirm(`Delete breakdown task "${t.task}"? This cannot be undone.`)) {
+                                        deleteTask(t.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
