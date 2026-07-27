@@ -649,6 +649,37 @@ export default function App() {
     setSelectedProject(trimmedName);
   }
 
+  async function handleCreateInventoryItem(name) {
+    if (!name || !name.trim()) return;
+    const trimmedName = name.trim();
+
+    const exists = tasks.some(
+      (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (exists) {
+      alert("Machinery Asset already exists!");
+      return;
+    }
+
+    const placeholder = {
+      id: "P-INV-" + Date.now(),
+      project: trimmedName,
+      projectToken: "inventory",
+      task: "__init__",
+      assignee: "C: Little to No Financial Impact ||| ||| [] ||| ||| []",
+      progress: 0,
+      startDate: todayStr(),
+      daysRequired: 0,
+      endDate: todayStr(),
+      createdBy: session.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveTasks([placeholder, ...tasks]);
+    setSelectedProject(trimmedName);
+  }
+
   function handleEditTaskSelect(t) {
     setFormType(t.projectToken);
     setEditTask(t);
@@ -714,6 +745,32 @@ export default function App() {
     });
     return list;
   }, [tasks]);
+
+  const inventoryItemsList = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    tasks.forEach((t) => {
+      if (t.projectToken === "inventory" && t.project) {
+        const val = t.project.trim();
+        const lower = val.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push(val);
+        }
+      }
+    });
+    if (list.length === 0) {
+      return DEFAULT_INVENTORY_ITEMS;
+    }
+    return list;
+  }, [tasks]);
+
+  const filteredInventoryItemsList = useMemo(() => {
+    const list = inventoryItemsList;
+    const query = invSearch.trim().toLowerCase();
+    if (!query) return list;
+    return list.filter(item => item.toLowerCase().includes(query));
+  }, [inventoryItemsList, invSearch]);
 
   const assigneeNames = useMemo(() => {
     const seen = new Set();
@@ -1062,6 +1119,9 @@ export default function App() {
 
   const filteredInventoryTasks = useMemo(() => {
     let list = inventoryTasks;
+    if (selectedProject) {
+      list = list.filter(t => t.project && t.project.toLowerCase() === selectedProject.toLowerCase());
+    }
     if (invStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress, "inventory") === invStatusFilter);
     }
@@ -1086,7 +1146,7 @@ export default function App() {
       );
     }
     return list;
-  }, [inventoryTasks, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
+  }, [inventoryTasks, selectedProject, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
@@ -2222,6 +2282,124 @@ export default function App() {
       )}
 
       {view === "inventory" && (() => {
+        if (!selectedProject) {
+          // 1. LIST OF MACHINERY ASSETS VIEW
+          return (
+            <main className="jd-main">
+              <div className="jd-stats">
+                <StatCard label="Total Assets" value={inventoryItemsList.length} />
+                <StatCard
+                  label="Total Down Days"
+                  value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)}
+                />
+                <StatCard
+                  label="Awaiting Analysis"
+                  value={inventoryTasks.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length}
+                  color={STATUS_COLOR["Awaiting Operator Analysis"]}
+                />
+                <StatCard
+                  label="In Progress"
+                  value={inventoryTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length}
+                  color={STATUS_COLOR["Maintenance in Progress"]}
+                />
+                <StatCard
+                  label="Ready to Begin"
+                  value={inventoryTasks.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length}
+                  color={STATUS_COLOR["Ready to Begin Production"]}
+                />
+              </div>
+
+              <div className="jd-panel">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+                  <h4 style={{ margin: 0 }}>Machinery Assets</h4>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
+                    <input
+                      type="text"
+                      className="jd-input"
+                      value={invSearch}
+                      onChange={(e) => setInvSearch(e.target.value)}
+                      placeholder="Search machinery assets..."
+                      style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
+                    />
+                  </div>
+                  {session.role === "management" && (
+                    <button
+                      className="jd-primary-btn"
+                      onClick={() => {
+                        const name = prompt("Enter new Machinery Asset Name:");
+                        if (name) handleCreateInventoryItem(name);
+                      }}
+                    >
+                      <Plus size={14} /> Add Machinery Asset
+                    </button>
+                  )}
+                </div>
+
+                {filteredInventoryItemsList.length === 0 ? (
+                  <p className="jd-empty-note">No machinery assets found.</p>
+                ) : (
+                  <table className="jd-table jd-table-click">
+                    <thead>
+                      <tr>
+                        <th>Machinery Asset Name</th>
+                        <th>Breakdown Tasks Count</th>
+                        <th>Total Down Days</th>
+                        <th>Awaiting Analysis</th>
+                        <th>In Progress</th>
+                        <th>Ready to Begin Production</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredInventoryItemsList.map((item) => {
+                        const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
+                        const downDays = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
+                        const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
+                        const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
+                        const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
+
+                        return (
+                          <tr key={item} onClick={() => setSelectedProject(item)}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <FolderOpen size={16} style={{ color: "var(--accent)" }} />
+                                <strong>{item}</strong>
+                              </div>
+                            </td>
+                            <td>{tasksInItem.length} breakdown tasks</td>
+                            <td>{downDays} days</td>
+                            <td>
+                              {awaiting > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {awaiting}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {inProgress > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {inProgress}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {ready > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", background: "rgba(16, 185, 129, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {ready}
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </main>
+          );
+        }
+
+        // 2. DETAILED MACHINERY ASSET TASKS VIEW
         const grouped = {};
         filteredInventoryTasks.forEach((t) => {
           const key = t.project || "Unassigned";
@@ -2229,8 +2407,31 @@ export default function App() {
           grouped[key].push(t);
         });
 
+        const currentAssetTasks = filteredInventoryTasks.filter(t => t.task !== "__init__");
+        const downDaysSum = currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
+        const awaitingCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
+        const inProgressCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
+        const readyCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
+
         return (
           <main className="jd-main">
+            <button
+              type="button"
+              className="jd-chip-btn"
+              style={{ width: "auto", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}
+              onClick={() => setSelectedProject("")}
+            >
+              ← Back to Machinery Assets
+            </button>
+
+            <div className="jd-stats">
+              <StatCard label="Total Tasks" value={currentAssetTasks.length} />
+              <StatCard label="Total Down Days" value={downDaysSum} />
+              <StatCard label="Awaiting Analysis" value={awaitingCount} color={STATUS_COLOR["Awaiting Operator Analysis"]} />
+              <StatCard label="In Progress" value={inProgressCount} color={STATUS_COLOR["Maintenance in Progress"]} />
+              <StatCard label="Ready to Begin" value={readyCount} color={STATUS_COLOR["Ready to Begin Production"]} />
+            </div>
+
             <div className="jd-panel" style={{ paddingBottom: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -2287,102 +2488,30 @@ export default function App() {
                     <option value="Maintenance in Progress">Maintenance in Progress</option>
                     <option value="Ready to Begin Production">Ready to Begin Production</option>
                   </select>
-                  <select
-                    className="jd-input"
-                    value={invCreatorFilter}
-                    onChange={(e) => setInvCreatorFilter(e.target.value)}
-                    style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
-                  >
-                    <option value="All">All Creators</option>
-                    {userNames.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
                   {session.role === "management" && (
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <input
-                          type="text"
-                          className="jd-input"
-                          placeholder="New asset name..."
-                          style={{ margin: 0, padding: "6px 10px", fontSize: "13px", width: "135px" }}
-                          id="new-asset-input"
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const val = e.target.value.trim();
-                              if (val) {
-                                const now = new Date().toISOString();
-                                const placeholder = {
-                                  id: "P-" + Date.now(),
-                                  project: val,
-                                  projectToken: "inventory",
-                                  task: "__init__",
-                                  assignee: "C: Little to No Financial Impact |||  ||| [] |||  ||| []",
-                                  startDate: todayStr(),
-                                  daysRequired: 0,
-                                  endDate: todayStr(),
-                                  progress: 0,
-                                  createdBy: session.name,
-                                  createdAt: now,
-                                  updatedAt: now
-                                };
-                                await saveTasks([placeholder, ...tasks]);
-                                e.target.value = "";
-                              }
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="jd-primary-btn"
-                          style={{ padding: "6px 12px", fontSize: "13px" }}
-                          onClick={async () => {
-                            const el = document.getElementById("new-asset-input");
-                            const val = el ? el.value.trim() : "";
-                            if (val) {
-                              const now = new Date().toISOString();
-                              const placeholder = {
-                                id: "P-" + Date.now(),
-                                project: val,
-                                projectToken: "inventory",
-                                task: "__init__",
-                                assignee: "C: Little to No Financial Impact |||  ||| [] |||  ||| []",
-                                startDate: todayStr(),
-                                daysRequired: 0,
-                                endDate: todayStr(),
-                                progress: 0,
-                                createdBy: session.name,
-                                createdAt: now,
-                                updatedAt: now
-                              };
-                              await saveTasks([placeholder, ...tasks]);
-                              if (el) el.value = "";
-                            }
-                          }}
-                        >
-                          Create Asset
-                        </button>
-                      </div>
-                      <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setSelectedProject(""); setShowForm(true); }}>
-                        <Plus size={14} /> Add Inventory Task
-                      </button>
-                    </div>
+                    <button
+                      className="jd-primary-btn"
+                      onClick={() => {
+                        setFormType("inventory");
+                        setEditTask(null);
+                        setShowForm(true);
+                      }}
+                    >
+                      <Plus size={14} /> Report Breakdown
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* Grouping and height bar matching second image */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--panel-2)", border: "1px solid var(--border)", borderBottom: "none", borderTopLeftRadius: "8px", borderTopRightRadius: "8px", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
-                  <span style={{ color: "var(--text-dim)" }}>Grouped By:</span>
-                  <strong style={{ color: "var(--accent)" }}>Asset Name</strong>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--panel-2)", border: "1px solid var(--border)", borderBottom: "none", padding: "10px 14px", borderTopLeftRadius: "8px", borderTopRightRadius: "8px", flexWrap: "wrap", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "12px", background: "var(--accent)", color: "#191008", fontWeight: "600", padding: "3px 8px", borderRadius: "5px" }}>Grouped By: Asset Name</span>
                   <span style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline", fontSize: "11.5px", marginLeft: "4px" }}>Edit Grouping and Formatting</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "12px" }}>
                   <span style={{ color: "var(--text-dim)" }}>Row Height:</span>
                   <span style={{ cursor: "pointer", opacity: 0.8, letterSpacing: "1px" }}>☰ ☲ ☵</span>
-                  <span style={{ color: "var(--text-dim)" }}>Total Assets: <strong>{Object.keys(grouped).length}</strong> — Total Tasks: <strong>{inventoryTasks.length}</strong></span>
+                  <span style={{ color: "var(--text-dim)" }}>Total Tasks: <strong>{currentAssetTasks.length}</strong></span>
                 </div>
               </div>
 
@@ -2412,31 +2541,15 @@ export default function App() {
                                 <FolderOpen size={16} style={{ color: "var(--accent)" }} />
                                 <strong style={{ fontSize: "13.5px" }}>{assetName}</strong>
                                 <span style={{ fontSize: "11px", fontWeight: "normal", background: "var(--panel-2)", color: "var(--text-dim)", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", border: "1px solid var(--border)" }}>
-                                  Item Count: {assetTasks.length}
+                                  Item Count: {assetTasks.filter(t => t.task !== "__init__").length}
                                 </span>
                               </div>
-                              {session.role === "management" && (
-                                <button
-                                  type="button"
-                                  className="jd-chip-btn"
-                                  style={{ padding: "2px 8px", fontSize: "11.5px", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFormType("inventory");
-                                    setSelectedProject(assetName);
-                                    setEditTask(null);
-                                    setShowForm(true);
-                                  }}
-                                >
-                                  <Plus size={11} /> Add Task
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
 
                         {/* Tasks under this Asset */}
-                        {assetTasks.map((t) => {
+                        {assetTasks.filter(t => t.task !== "__init__").map((t) => {
                           const isMIP = statusOf(t.progress, "inventory") === "Maintenance in Progress";
                           const isEsc = statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor";
                           const taskPhotos = t.photos || [];
