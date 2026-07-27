@@ -2413,12 +2413,10 @@ export default function App() {
                   <thead>
                     <tr>
                       <th style={{ width: "30%" }}>Brief Description</th>
-                      <th>Status</th>
                       <th>Assignee</th>
                       <th>Date and Time of Breakdown</th>
                       <th>Fault Reason</th>
                       <th>Total Down Hours</th>
-                      <th>Criticality Level</th>
                       <th>Id</th>
                       {session.role === "management" && <th style={{ width: "40px" }}></th>}
                     </tr>
@@ -2428,7 +2426,7 @@ export default function App() {
                       <Fragment key={assetName}>
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
-                          <td colSpan={session.role === "management" ? 9 : 8} style={{ padding: "10px 14px" }}>
+                          <td colSpan={session.role === "management" ? 7 : 6} style={{ padding: "10px 14px" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
@@ -2484,11 +2482,7 @@ export default function App() {
                                   </div>
                                 </div>
                               </td>
-                              <td>
-                                <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
-                                  {statusOf(t.progress, "inventory")}
-                                </span>
-                              </td>
+
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                   {assigneesList.map((name) => (
@@ -2507,18 +2501,6 @@ export default function App() {
                               <td className="jd-mono">{fmt(t.startDate)}</td>
                               <td>{t.description || "—"}</td>
                               <td>{((Number(t.daysRequired) || 0) * 24)} hrs</td>
-                              <td>
-                                <span
-                                  className="jd-badge"
-                                  style={{
-                                    background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
-                                    color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
-                                    fontWeight: "500"
-                                  }}
-                                >
-                                  {t.location || "C: Little to No Financial Impact"}
-                                </span>
-                              </td>
                               <td className="jd-mono">#{t.id}</td>
                               {session.role === "management" && (
                                 <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
