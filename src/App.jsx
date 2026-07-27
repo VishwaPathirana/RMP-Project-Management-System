@@ -2104,7 +2104,16 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: "16px", marginBottom: "20px" }} className="jd-inventory-header-grid">
             
             {/* Active Tasks Panel */}
-            <div className="jd-panel" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "250px", textAlign: "center" }}>
+            <div
+              className="jd-panel"
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "250px", textAlign: "center", cursor: "pointer" }}
+              onClick={() => {
+                setInvStatusFilter("All");
+                setSelectedProject("");
+                setView("inventory");
+              }}
+              title="Click to view all Inventory Tasks"
+            >
               <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Tasks</h4>
               <div style={{ fontSize: "96px", fontWeight: "700", color: "#7EA754", lineHeight: "1", fontFamily: "'Oswald', sans-serif" }}>
                 {invTotals.totalTasks}
@@ -2121,7 +2130,28 @@ export default function App() {
                     <XAxis dataKey="stageName" tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
                     <YAxis type="number" allowDecimals={false} tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
                     <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Bar dataKey="Count" fill="#7EA754" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar
+                      dataKey="Count"
+                      fill="#7EA754"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={40}
+                      style={{ cursor: "pointer" }}
+                      onClick={(data) => {
+                        if (!data || !data.stageName) return;
+                        const stageMap = {
+                          "01-Breakdown": "Awaiting Operator Analysis",
+                          "02-Escalation": "Escalated to Maintenance Supervisor",
+                          "03-Repair": "Maintenance in Progress",
+                          "04-Production": "Ready to Begin Production"
+                        };
+                        const status = stageMap[data.stageName];
+                        if (status) {
+                          setInvStatusFilter(status);
+                          setSelectedProject("");
+                          setView("inventory");
+                        }
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -2141,6 +2171,13 @@ export default function App() {
                       outerRadius={75}
                       paddingAngle={3}
                       stroke="none"
+                      style={{ cursor: "pointer" }}
+                      onClick={(entry) => {
+                        if (!entry || !entry.name) return;
+                        setInvStatusFilter(entry.name);
+                        setSelectedProject("");
+                        setView("inventory");
+                      }}
                     >
                       {invByStatusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={STATUS_COLOR[entry.name]} />
@@ -2172,7 +2209,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {invOverdue.map((t) => (
-                    <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
+                    <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => { setSelectedProject(t.project || ""); handleEditTaskSelect(t); setView("inventory"); }}>
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
                       <td>
@@ -2220,6 +2257,11 @@ export default function App() {
                   color={STATUS_COLOR["Awaiting Operator Analysis"]}
                 />
                 <StatCard
+                  label="Escalated"
+                  value={inventoryTasks.filter(t => statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor").length}
+                  color={STATUS_COLOR["Escalated to Maintenance Supervisor"]}
+                />
+                <StatCard
                   label="In Progress"
                   value={inventoryTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length}
                   color={STATUS_COLOR["Maintenance in Progress"]}
@@ -2264,6 +2306,7 @@ export default function App() {
                         <th>Breakdown Tasks Count</th>
                         <th>Total Down Hours</th>
                         <th>Awaiting Analysis</th>
+                        <th>Escalated</th>
                         <th>In Progress</th>
                         <th>Ready to Begin Production</th>
                         {session.role === "management" && <th style={{ width: "50px" }}></th>}
@@ -2274,6 +2317,7 @@ export default function App() {
                         const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
                         const downHours = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
                         const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
+                        const escalated = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor").length;
                         const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
                         const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
 
@@ -2291,6 +2335,13 @@ export default function App() {
                               {awaiting > 0 ? (
                                 <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
                                   {awaiting}
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {escalated > 0 ? (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", background: "rgba(16, 185, 129, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
+                                  {escalated}
                                 </span>
                               ) : "—"}
                             </td>
@@ -2350,6 +2401,7 @@ export default function App() {
         const currentAssetTasks = filteredInventoryTasks.filter(t => t.task !== "__init__");
         const downHoursSum = currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
         const awaitingCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
+        const escalatedCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor").length;
         const inProgressCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
         const readyCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
 
@@ -2368,6 +2420,7 @@ export default function App() {
               <StatCard label="Total Tasks" value={currentAssetTasks.length} />
               <StatCard label="Total Down Hours" value={downHoursSum} />
               <StatCard label="Awaiting Analysis" value={awaitingCount} color={STATUS_COLOR["Awaiting Operator Analysis"]} />
+              <StatCard label="Escalated" value={escalatedCount} color={STATUS_COLOR["Escalated to Maintenance Supervisor"]} />
               <StatCard label="In Progress" value={inProgressCount} color={STATUS_COLOR["Maintenance in Progress"]} />
               <StatCard label="Ready to Begin" value={readyCount} color={STATUS_COLOR["Ready to Begin Production"]} />
             </div>
