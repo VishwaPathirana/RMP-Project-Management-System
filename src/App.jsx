@@ -2342,20 +2342,12 @@ export default function App() {
                     <thead>
                       <tr>
                         <th>Machinery Asset Name</th>
-                        <th>Breakdown Tasks Count</th>
-                        <th>Total Down Days</th>
-                        <th>Awaiting Analysis</th>
-                        <th>In Progress</th>
-                        <th>Ready to Begin Production</th>
+                        <th style={{ textAlign: "right" }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredInventoryItemsList.map((item) => {
                         const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
-                        const downDays = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
-                        const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
-                        const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
-                        const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
 
                         return (
                           <tr key={item} onClick={() => setSelectedProject(item)}>
@@ -2365,28 +2357,10 @@ export default function App() {
                                 <strong>{item}</strong>
                               </div>
                             </td>
-                            <td>{tasksInItem.length} breakdown tasks</td>
-                            <td>{downDays} days</td>
-                            <td>
-                              {awaiting > 0 ? (
-                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
-                                  {awaiting}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td>
-                              {inProgress > 0 ? (
-                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
-                                  {inProgress}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td>
-                              {ready > 0 ? (
-                                <span style={{ fontSize: "11px", fontWeight: "600", color: "#10b981", background: "rgba(16, 185, 129, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
-                                  {ready}
-                                </span>
-                              ) : "—"}
+                            <td style={{ textAlign: "right" }}>
+                              <button className="jd-chip-btn" style={{ width: "auto", padding: "4px 10px", fontSize: "12px", display: "inline-flex", alignItems: "center" }}>
+                                View Details ({tasksInItem.length})
+                              </button>
                             </td>
                           </tr>
                         );
