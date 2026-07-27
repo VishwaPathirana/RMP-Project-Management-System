@@ -259,7 +259,7 @@ export default function App() {
         .select("*")
         .order("createdAt", { ascending: false });
       if (error) throw error;
-      const parsed = (data || []).map((t) => {
+      let parsed = (data || []).map((t) => {
         let location = "";
         let assigneeName = "";
         let photos = [];
@@ -297,6 +297,121 @@ export default function App() {
           subTasks
         };
       });
+
+      const hasInventory = parsed.some(t => t.projectToken === "inventory");
+      if (!hasInventory) {
+        const now = new Date().toISOString();
+        const seedTasks = [
+          {
+            id: "T-2001",
+            project: "Drilling Machine C21",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Drilling Machine C21",
+            assignee: "C: Little to No Financial Impact ||| Jeremy Grue ||| [] ||| Drilling Machine C21 was jammed while operating, no damage done. ||| []",
+            startDate: "2024-02-14",
+            daysRequired: 5,
+            endDate: "2024-02-19",
+            progress: 100,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: "T-2002",
+            project: "Grinder A97",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Grinder A97",
+            assignee: "B: < 20% Financial Impact ||| Christian Caesar ||| [] ||| Grinder A97 has cracked workpiece. ||| []",
+            startDate: "2024-02-19",
+            daysRequired: 1,
+            endDate: "2024-02-20",
+            progress: 0,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: "T-2003",
+            project: "Hobbing Machine J2",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Hobbing Machine J2",
+            assignee: "A: > 20% Financial Impact ||| Lydia Brunswick ||| [] ||| Hobbing Machine J2 has been improperly set up. ||| []",
+            startDate: "2024-02-19",
+            daysRequired: 1,
+            endDate: "2024-02-20",
+            progress: 60,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: "T-2004",
+            project: "Lathe A1",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Lathe A1",
+            assignee: "B: < 20% Financial Impact ||| Jerry Simon ||| [] ||| Lathe A1 does not turn on all the time, possible electrical issue. ||| []",
+            startDate: "2024-02-12",
+            daysRequired: 7,
+            endDate: "2024-02-19",
+            progress: 60,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: "T-2005",
+            project: "Milling Machine B9",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Milling Machine B9",
+            assignee: "B: < 20% Financial Impact ||| Paul Marks ||| [] ||| Milling Machine B9 function when powered on. ||| []",
+            startDate: "2024-02-15",
+            daysRequired: 4,
+            endDate: "2024-02-19",
+            progress: 60,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          },
+          {
+            id: "T-2006",
+            project: "Planer N2",
+            projectToken: "inventory",
+            task: "Breakdown Maintenance - Planer N2",
+            assignee: "C: Little to No Financial Impact ||| Connor Phelps ||| [] ||| Planer N2 blades are dull. ||| []",
+            startDate: "2024-02-16",
+            daysRequired: 3,
+            endDate: "2024-02-19",
+            progress: 30,
+            createdBy: "System",
+            createdAt: now,
+            updatedAt: now
+          }
+        ];
+
+        try {
+          const { data: inserted, error: insertErr } = await supabase
+            .from("tasks")
+            .insert(seedTasks)
+            .select("*");
+          if (!insertErr && inserted && inserted.length > 0) {
+            const insertedParsed = inserted.map(t => {
+              const parts = t.assignee.split(" ||| ");
+              return {
+                ...t,
+                location: parts[0] || "",
+                assigneeName: parts[1] || "",
+                photos: [],
+                description: parts[3] || "",
+                subTasks: []
+              };
+            });
+            parsed = [...insertedParsed, ...parsed];
+          }
+        } catch (e) {
+          console.error("Seeding inventory tasks failed", e);
+        }
+      }
+
       try {
         localStorage.setItem("cached-job-tasks", JSON.stringify(parsed));
       } catch (e) { }
