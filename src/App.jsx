@@ -2234,8 +2234,7 @@ export default function App() {
             <div className="jd-panel" style={{ paddingBottom: "24px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <h4 style={{ margin: 0, fontSize: "16px" }}>Active Breakdown Maintenance Tasks</h4>
-                  <span style={{ fontSize: "12px", color: "var(--text-dim)", cursor: "pointer" }}>▼</span>
+                  <h4 style={{ margin: 0, fontSize: "16px" }}>Breakdown Tasks: {selectedProject}</h4>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                   <input
@@ -2243,7 +2242,7 @@ export default function App() {
                     className="jd-input"
                     value={invSearch}
                     onChange={(e) => setInvSearch(e.target.value)}
-                    placeholder="Search by Brief Description, Asset, Criticality..."
+                    placeholder="Search tasks..."
                     style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                   />
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
