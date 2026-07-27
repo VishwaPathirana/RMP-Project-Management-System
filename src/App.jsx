@@ -585,6 +585,8 @@ export default function App() {
 
   async function deleteTask(id) {
     const taskToDelete = tasks.find((t) => t.id === id);
+    const taskName = taskToDelete?.task ? ` "${taskToDelete.task}"` : "";
+    if (!window.confirm(`Are you sure you want to delete task${taskName}? This action cannot be undone.`)) return;
     let nextList = tasks.filter((t) => t.id !== id);
     if (taskToDelete && taskToDelete.projectToken !== "maintenance" && taskToDelete.project) {
       const remainingTasksInProj = nextList.filter(
@@ -3134,6 +3136,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
   const handleDeleteSubTask = (idx) => {
     if (readOnly) return;
+    if (!window.confirm("Are you sure you want to delete this sub-task?")) return;
     const nextSubTasks = subTasks.filter((_, i) => i !== idx);
     setSubTasks(nextSubTasks);
     const completedCount = nextSubTasks.filter(st => st.completed).length;
@@ -3406,7 +3409,9 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
                     className="jd-photo-remove"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPhotos(photos.filter((_, i) => i !== idx));
+                      if (window.confirm("Are you sure you want to remove this photo?")) {
+                        setPhotos(photos.filter((_, i) => i !== idx));
+                      }
                     }}
                   >
                     <X size={12} />
