@@ -2418,7 +2418,6 @@ export default function App() {
                       <th>Fault Reason</th>
                       <th>Total Down Hours</th>
                       <th>Id</th>
-                      {session.role === "management" && <th style={{ width: "40px" }}></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -2426,7 +2425,7 @@ export default function App() {
                       <Fragment key={assetName}>
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
-                          <td colSpan={session.role === "management" ? 7 : 6} style={{ padding: "10px 14px" }}>
+                          <td colSpan={6} style={{ padding: "10px 14px" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
@@ -2459,27 +2458,44 @@ export default function App() {
                               }}
                             >
                               <td style={{ paddingLeft: "32px" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                  <FileText size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
-                                  <div>
-                                    <span style={{ fontSize: "13px", fontWeight: "500" }}>{t.task}</span>
-                                    {t.subTasks && t.subTasks.length > 0 && (
-                                      <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                                        {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                                      </div>
-                                    )}
-                                    {taskPhotos.length > 0 && (
-                                      <div
-                                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
-                                        }}
-                                      >
-                                        <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
-                                      </div>
-                                    )}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "space-between" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <FileText size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+                                    <div>
+                                      <span style={{ fontSize: "13px", fontWeight: "500" }}>{t.task}</span>
+                                      {t.subTasks && t.subTasks.length > 0 && (
+                                        <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                          {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                                        </div>
+                                      )}
+                                      {taskPhotos.length > 0 && (
+                                        <div
+                                          style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                                          }}
+                                        >
+                                          <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
+                                  {session.role === "management" && (
+                                    <button
+                                      type="button"
+                                      title="Delete this breakdown task"
+                                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center", flexShrink: 0 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Delete breakdown task "${t.task}"? This cannot be undone.`)) {
+                                          deleteTask(t.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
 
@@ -2502,22 +2518,7 @@ export default function App() {
                               <td>{t.description || "—"}</td>
                               <td>{((Number(t.daysRequired) || 0) * 24)} hrs</td>
                               <td className="jd-mono">#{t.id}</td>
-                              {session.role === "management" && (
-                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
-                                  <button
-                                    type="button"
-                                    title="Delete this breakdown task"
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
-                                    onClick={() => {
-                                      if (window.confirm(`Delete breakdown task "${t.task}"? This cannot be undone.`)) {
-                                        deleteTask(t.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </td>
-                              )}
+
                             </tr>
                           );
                         })}
