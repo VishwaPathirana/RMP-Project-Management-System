@@ -2300,9 +2300,75 @@ export default function App() {
                     ))}
                   </select>
                   {session.role === "management" && (
-                    <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setShowForm(true); }}>
-                      <Plus size={14} /> Add Inventory Task
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <input
+                          type="text"
+                          className="jd-input"
+                          placeholder="New asset name..."
+                          style={{ margin: 0, padding: "6px 10px", fontSize: "13px", width: "135px" }}
+                          id="new-asset-input"
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const val = e.target.value.trim();
+                              if (val) {
+                                const now = new Date().toISOString();
+                                const placeholder = {
+                                  id: "P-" + Date.now(),
+                                  project: val,
+                                  projectToken: "inventory",
+                                  task: "__init__",
+                                  assignee: "C: Little to No Financial Impact |||  ||| [] |||  ||| []",
+                                  startDate: todayStr(),
+                                  daysRequired: 0,
+                                  endDate: todayStr(),
+                                  progress: 0,
+                                  createdBy: session.name,
+                                  createdAt: now,
+                                  updatedAt: now
+                                };
+                                await saveTasks([placeholder, ...tasks]);
+                                e.target.value = "";
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="jd-primary-btn"
+                          style={{ padding: "6px 12px", fontSize: "13px" }}
+                          onClick={async () => {
+                            const el = document.getElementById("new-asset-input");
+                            const val = el ? el.value.trim() : "";
+                            if (val) {
+                              const now = new Date().toISOString();
+                              const placeholder = {
+                                id: "P-" + Date.now(),
+                                project: val,
+                                projectToken: "inventory",
+                                task: "__init__",
+                                assignee: "C: Little to No Financial Impact |||  ||| [] |||  ||| []",
+                                startDate: todayStr(),
+                                daysRequired: 0,
+                                endDate: todayStr(),
+                                progress: 0,
+                                createdBy: session.name,
+                                createdAt: now,
+                                updatedAt: now
+                              };
+                              await saveTasks([placeholder, ...tasks]);
+                              if (el) el.value = "";
+                            }
+                          }}
+                        >
+                          Create Asset
+                        </button>
+                      </div>
+                      <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setSelectedProject(""); setShowForm(true); }}>
+                        <Plus size={14} /> Add Inventory Task
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2341,13 +2407,31 @@ export default function App() {
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
                           <td colSpan={8} style={{ padding: "10px 14px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
-                              <FolderOpen size={16} style={{ color: "var(--accent)" }} />
-                              <strong style={{ fontSize: "13.5px" }}>{assetName}</strong>
-                              <span style={{ fontSize: "11px", fontWeight: "normal", background: "var(--panel-2)", color: "var(--text-dim)", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", border: "1px solid var(--border)" }}>
-                                Item Count: {assetTasks.length}
-                              </span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
+                                <FolderOpen size={16} style={{ color: "var(--accent)" }} />
+                                <strong style={{ fontSize: "13.5px" }}>{assetName}</strong>
+                                <span style={{ fontSize: "11px", fontWeight: "normal", background: "var(--panel-2)", color: "var(--text-dim)", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", border: "1px solid var(--border)" }}>
+                                  Item Count: {assetTasks.length}
+                                </span>
+                              </div>
+                              {session.role === "management" && (
+                                <button
+                                  type="button"
+                                  className="jd-chip-btn"
+                                  style={{ padding: "2px 8px", fontSize: "11.5px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFormType("inventory");
+                                    setSelectedProject(assetName);
+                                    setEditTask(null);
+                                    setShowForm(true);
+                                  }}
+                                >
+                                  <Plus size={11} /> Add Task
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -2978,7 +3062,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const isDropdownProject = type === "maintenance" || type === "inventory";
 
   const [selectedNameOption, setSelectedNameOption] = useState(() => {
-    const val = initial?.project || "";
+    const val = initial?.project || defaultProject || "";
     const list = type === "inventory" ? DEFAULT_INVENTORY_ITEMS : DEFAULT_NAMES;
     if (list.includes(val)) {
       return val;
@@ -2989,7 +3073,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     return "__custom__";
   });
   const [customNameInput, setCustomNameInput] = useState(() => {
-    const val = initial?.project || "";
+    const val = initial?.project || defaultProject || "";
     const list = type === "inventory" ? DEFAULT_INVENTORY_ITEMS : DEFAULT_NAMES;
     return list.includes(val) ? "" : val;
   });
