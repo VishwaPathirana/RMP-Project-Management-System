@@ -2497,12 +2497,13 @@ export default function App() {
                 <table className="jd-table jd-table-click jd-table-divided">
                   <thead>
                     <tr>
-                      <th style={{ width: "30%" }}>Brief Description</th>
+                      <th style={{ width: "22%" }}>Machinery</th>
+                      <th style={{ width: "15%" }}>Fault Type</th>
                       <th>Assignee</th>
                       <th>Date and Time of Breakdown</th>
                       <th>Fault Reason</th>
                       <th>Total Down Hours</th>
-                      <th>Id</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2510,7 +2511,7 @@ export default function App() {
                       <Fragment key={assetName}>
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
-                          <td colSpan={6} style={{ padding: "10px 14px" }}>
+                          <td colSpan={7} style={{ padding: "10px 14px" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
@@ -2548,20 +2549,6 @@ export default function App() {
                                     <FileText size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
                                     <div>
                                       <span style={{ fontSize: "13px", fontWeight: "500" }}>{t.task}</span>
-                                      {(t.electricalFault || t.mechanicalFault || t.faultType) && (
-                                        <div style={{ display: "flex", gap: "4px", marginTop: "3px", flexWrap: "wrap" }}>
-                                          {(t.electricalFault || (t.faultType || "").toLowerCase().includes("electrical")) && (
-                                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "1px 5px", borderRadius: "4px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
-                                              ⚡ Electrical fault
-                                            </span>
-                                          )}
-                                          {(t.mechanicalFault || (t.faultType || "").toLowerCase().includes("mechanical")) && (
-                                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#f59e0b", background: "rgba(245, 158, 11, 0.12)", padding: "1px 5px", borderRadius: "4px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
-                                              ⚙️ Mechanical fault
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
                                       {t.subTasks && t.subTasks.length > 0 && (
                                         <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
                                           {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
@@ -2599,6 +2586,22 @@ export default function App() {
                               </td>
 
                               <td>
+                                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                                  {(t.electricalFault || (t.faultType || "").toLowerCase().includes("electrical")) && (
+                                    <span style={{ fontSize: "10.5px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "2px 6px", borderRadius: "4px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                                      ⚡ Electrical
+                                    </span>
+                                  )}
+                                  {(t.mechanicalFault || (t.faultType || "").toLowerCase().includes("mechanical")) && (
+                                    <span style={{ fontSize: "10.5px", fontWeight: "600", color: "#f59e0b", background: "rgba(245, 158, 11, 0.12)", padding: "2px 6px", borderRadius: "4px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                                      ⚙️ Mechanical
+                                    </span>
+                                  )}
+                                  {!t.electricalFault && !t.mechanicalFault && !t.faultType && <span style={{ color: "var(--text-dim)" }}>—</span>}
+                                </div>
+                              </td>
+
+                              <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                                   {assigneesList.map((name) => (
                                     <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "20px", border: "1px solid var(--border)" }}>
@@ -2613,11 +2616,18 @@ export default function App() {
                                   {assigneesList.length === 0 && <span style={{ color: "var(--text-dim)" }}>—</span>}
                                 </div>
                               </td>
-                              <td className="jd-mono">{fmt(t.startDate)}</td>
+                              <td className="jd-mono">
+                                {fmt(t.startDate)}
+                                {t.breakdownTime ? ` ${t.breakdownTime}` : ""}
+                                {t.breakdownEndTime ? ` – ${t.breakdownEndTime}` : ""}
+                              </td>
                               <td>{t.description || "—"}</td>
-                              <td>{((Number(t.daysRequired) || 0) * 24)} hrs</td>
-                              <td className="jd-mono">#{t.id}</td>
-
+                              <td>{Number(t.daysRequired) || 0} hrs</td>
+                              <td>
+                                <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
+                                  {statusOf(t.progress, "inventory")}
+                                </span>
+                              </td>
                             </tr>
                           );
                         })}
@@ -2625,7 +2635,7 @@ export default function App() {
                     ))}
                     {Object.keys(grouped).length === 0 && (
                       <tr>
-                        <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                        <td colSpan={7} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
                           <div style={{ marginBottom: "10px" }}>No breakdown tasks found.</div>
                         </td>
                       </tr>
