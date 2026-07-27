@@ -2212,7 +2212,7 @@ export default function App() {
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
                       <td>{t.assigneeName || "—"}</td>
-                      <td className="jd-mono">{fmt(t.startDate)}{t.breakdownTime ? ` ${t.breakdownTime}` : ""}</td>
+                      <td className="jd-mono">{fmt(t.startDate)}{t.breakdownTime ? ` ${t.breakdownTime}` : ""}{t.breakdownEndTime ? ` – ${t.breakdownEndTime}` : ""}</td>
                       <td>
                         <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
                           {statusOf(t.progress, "inventory")}
@@ -3211,8 +3211,27 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   });
   const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
   const [breakdownTime, setBreakdownTime] = useState(initial?.breakdownTime || "09:00");
-  const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
-  const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
+  const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || initial?.startDate || todayStr());
+  const [breakdownEndTime, setBreakdownEndTime] = useState(initial?.breakdownEndTime || "17:00");
+
+  function calcDownHours(sDate, sTime, eDate, eTime) {
+    if (!sDate) return "";
+    const startStr = `${sDate}T${sTime || "00:00"}:00`;
+    const endStr = `${eDate || sDate}T${eTime || sTime || "00:00"}:00`;
+    const startDt = new Date(startStr);
+    const endDt = new Date(endStr);
+    if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return "";
+    const diffMs = endDt.getTime() - startDt.getTime();
+    if (diffMs < 0) return 0;
+    const hours = diffMs / (1000 * 60 * 60);
+    return Math.round(hours * 100) / 100;
+  }
+
+  const [daysRequired, setDaysRequired] = useState(() => {
+    if (initial?.daysRequired) return initial.daysRequired;
+    const calc = calcDownHours(initial?.startDate || todayStr(), initial?.breakdownTime || "09:00", initial?.endDate || todayStr(), initial?.breakdownEndTime || "17:00");
+    return calc || "";
+  });
   const [progress, setProgress] = useState(initial?.progress ?? 0);
   const [photos, setPhotos] = useState(initial?.photos || []);
   const [uploading, setUploading] = useState(false);
@@ -3296,8 +3315,9 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         assigneeName: selectedAssignees.join(", "),
         startDate: noDate ? null : startDate,
         breakdownTime: noDate ? null : breakdownTime,
+        breakdownEndTime: noDate ? null : breakdownEndTime,
         daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
-        endDateOverride: noDate ? null : (endDateOverride || computedEnd),
+        endDateOverride: noDate ? null : (endDateOverride || startDate),
         progress: Number(progress),
         photos,
         description,
@@ -3489,37 +3509,106 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         </div>
 
         {type === "inventory" ? (
-          <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-            <div>
-              <label className="jd-field-label"><Calendar size={12} /> Date of Breakdown</label>
-              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+          <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "14px" }}>
+            <div className="jd-form-row">
+              <div>
+                <label className="jd-field-label"><Calendar size={12} /> Start Date of Breakdown</label>
+                <input
+                  type="date"
+                  className="jd-input"
+                  value={noDate ? "" : startDate}
+                  onChange={(e) => {
+                    const newSDate = e.target.value;
+                    setStartDate(newSDate);
+                    const hours = calcDownHours(newSDate, breakdownTime, endDateOverride || newSDate, breakdownEndTime);
+                    setDaysRequired(hours);
+                  }}
+                  disabled={readOnly || noDate}
+                />
+              </div>
+              <div>
+                <label className="jd-field-label">Start Time of Breakdown</label>
+                <input
+                  type="time"
+                  className="jd-input"
+                  value={noDate ? "" : breakdownTime}
+                  onChange={(e) => {
+                    const newSTime = e.target.value;
+                    setBreakdownTime(newSTime);
+                    const hours = calcDownHours(startDate, newSTime, endDateOverride || startDate, breakdownEndTime);
+                    setDaysRequired(hours);
+                  }}
+                  disabled={readOnly || noDate}
+                />
+              </div>
             </div>
-            <div>
-              <label className="jd-field-label">Time of Breakdown</label>
-              <input type="time" className="jd-input" value={noDate ? "" : breakdownTime} onChange={(e) => setBreakdownTime(e.target.value)} disabled={readOnly || noDate} />
+
+            <div className="jd-form-row">
+              <div>
+                <label className="jd-field-label"><Calendar size={12} /> End Date of Breakdown</label>
+                <input
+                  type="date"
+                  className="jd-input"
+                  value={noDate ? "" : (endDateOverride || startDate)}
+                  onChange={(e) => {
+                    const newEDate = e.target.value;
+                    setEndDateOverride(newEDate);
+                    const hours = calcDownHours(startDate, breakdownTime, newEDate, breakdownEndTime);
+                    setDaysRequired(hours);
+                  }}
+                  disabled={readOnly || noDate}
+                />
+              </div>
+              <div>
+                <label className="jd-field-label">End Time of Breakdown</label>
+                <input
+                  type="time"
+                  className="jd-input"
+                  value={noDate ? "" : breakdownEndTime}
+                  onChange={(e) => {
+                    const newETime = e.target.value;
+                    setBreakdownEndTime(newETime);
+                    const hours = calcDownHours(startDate, breakdownTime, endDateOverride || startDate, newETime);
+                    setDaysRequired(hours);
+                  }}
+                  disabled={readOnly || noDate}
+                />
+              </div>
             </div>
+
             <div>
-              <label className="jd-field-label">Total Down Hours</label>
-              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+              <label className="jd-field-label">Total Down Hours (auto-calculated)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="jd-input"
+                value={noDate ? "" : daysRequired}
+                onChange={(e) => setDaysRequired(e.target.value)}
+                placeholder="Calculated automatically from Start & End Date/Time"
+                disabled={readOnly || noDate}
+              />
             </div>
           </div>
         ) : (
-          <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-            <div>
-              <label className="jd-field-label"><Calendar size={12} /> Start date</label>
-              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+          <>
+            <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+              <div>
+                <label className="jd-field-label"><Calendar size={12} /> Start date</label>
+                <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+              </div>
+              <div>
+                <label className="jd-field-label">Days required</label>
+                <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+              </div>
             </div>
-            <div>
-              <label className="jd-field-label">Days required</label>
-              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
-            </div>
-          </div>
-        )}
 
-        <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-          <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
-          <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
-        </div>
+            <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+              <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
+              <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
+            </div>
+          </>
+        )}
 
         {type === "inventory" ? (
           <>
