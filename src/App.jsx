@@ -2548,6 +2548,20 @@ export default function App() {
                                     <FileText size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
                                     <div>
                                       <span style={{ fontSize: "13px", fontWeight: "500" }}>{t.task}</span>
+                                      {(t.electricalFault || t.mechanicalFault || t.faultType) && (
+                                        <div style={{ display: "flex", gap: "4px", marginTop: "3px", flexWrap: "wrap" }}>
+                                          {(t.electricalFault || (t.faultType || "").toLowerCase().includes("electrical")) && (
+                                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "1px 5px", borderRadius: "4px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                                              ⚡ Electrical fault
+                                            </span>
+                                          )}
+                                          {(t.mechanicalFault || (t.faultType || "").toLowerCase().includes("mechanical")) && (
+                                            <span style={{ fontSize: "10px", fontWeight: "600", color: "#f59e0b", background: "rgba(245, 158, 11, 0.12)", padding: "1px 5px", borderRadius: "4px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                                              ⚙️ Mechanical fault
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
                                       {t.subTasks && t.subTasks.length > 0 && (
                                         <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
                                           {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
@@ -3203,6 +3217,16 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   const [photos, setPhotos] = useState(initial?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [description, setDescription] = useState(initial?.description || "");
+  const [electricalFault, setElectricalFault] = useState(() => {
+    if (!initial) return false;
+    if (typeof initial.electricalFault === "boolean") return initial.electricalFault;
+    return (initial.faultType || "").toLowerCase().includes("electrical");
+  });
+  const [mechanicalFault, setMechanicalFault] = useState(() => {
+    if (!initial) return false;
+    if (typeof initial.mechanicalFault === "boolean") return initial.mechanicalFault;
+    return (initial.faultType || "").toLowerCase().includes("mechanical");
+  });
   const [subTasks, setSubTasks] = useState(initial?.subTasks || []);
   const [subTaskInput, setSubTaskInput] = useState("");
 
@@ -3266,6 +3290,9 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         projectToken: type,
         task: task.trim(),
         location: location.trim(),
+        electricalFault,
+        mechanicalFault,
+        faultType: [electricalFault && "Electrical fault", mechanicalFault && "Mechanical fault"].filter(Boolean).join(", "),
         assigneeName: selectedAssignees.join(", "),
         startDate: noDate ? null : startDate,
         breakdownTime: noDate ? null : breakdownTime,
@@ -3327,6 +3354,34 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
         <label className="jd-field-label">{type === "inventory" ? "Machinery" : "Task Name"}</label>
         <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder={type === "inventory" ? "e.g. Grinder A97" : "e.g. T-1001"} disabled={readOnly} />
+
+        {type === "inventory" && (
+          <>
+            <label className="jd-field-label">Fault Type</label>
+            <div style={{ display: "flex", gap: "20px", marginBottom: "14px", flexWrap: "wrap", background: "var(--panel-2)", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={electricalFault}
+                  onChange={(e) => setElectricalFault(e.target.checked)}
+                  disabled={readOnly}
+                  style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
+                />
+                <span>⚡ Electrical fault</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={mechanicalFault}
+                  onChange={(e) => setMechanicalFault(e.target.checked)}
+                  disabled={readOnly}
+                  style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
+                />
+                <span>⚙️ Mechanical fault</span>
+              </label>
+            </div>
+          </>
+        )}
 
         {type !== "inventory" && (
           <>
