@@ -544,7 +544,7 @@ export default function App() {
       (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmedName.toLowerCase()
     );
     if (exists) {
-      alert("Machinery Asset already exists!");
+      alert("Machinery Section already exists!");
       return;
     }
 
@@ -2136,7 +2136,7 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Task No</th>
-                    <th>Asset Name</th>
+                    <th>Machinery Section</th>
                     <th>Criticality Level</th>
                     <th>Assignee</th>
                     <th>Date of Breakdown</th>
@@ -2148,6 +2148,18 @@ export default function App() {
                     <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
+                      <td>
+                        <span
+                          className="jd-badge"
+                          style={{
+                            background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
+                            color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
+                            fontWeight: "500"
+                          }}
+                        >
+                          {t.location || "C: Little to No Financial Impact"}
+                        </span>
+                      </td>
                       <td>{t.assigneeName || "—"}</td>
                       <td className="jd-mono">{fmt(t.startDate)}</td>
                       <td>
@@ -2166,11 +2178,11 @@ export default function App() {
 
       {view === "inventory" && (() => {
         if (!selectedProject) {
-          // 1. LIST OF MACHINERY ASSETS VIEW
+          // 1. LIST OF MACHINERY SECTIONS VIEW
           return (
             <main className="jd-main">
               <div className="jd-stats">
-                <StatCard label="Total Assets" value={inventoryItemsList.length} />
+                <StatCard label="Total Machinery Sections" value={inventoryItemsList.length} />
                 <StatCard
                   label="Total Down Hours"
                   value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24}
@@ -2194,14 +2206,14 @@ export default function App() {
 
               <div className="jd-panel">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
-                  <h4 style={{ margin: 0 }}>Machinery Assets</h4>
+                  <h4 style={{ margin: 0 }}>Machinery Section</h4>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                     <input
                       type="text"
                       className="jd-input"
                       value={invSearch}
                       onChange={(e) => setInvSearch(e.target.value)}
-                      placeholder="Search machinery assets..."
+                      placeholder="Search machinery sections..."
                       style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                     />
                   </div>
@@ -2210,18 +2222,18 @@ export default function App() {
                       className="jd-primary-btn"
                       onClick={() => setShowInvForm(true)}
                     >
-                      <Plus size={14} /> Add Machinery Asset
+                      <Plus size={14} /> Add Machinery Section
                     </button>
                   )}
                 </div>
 
                 {filteredInventoryItemsList.length === 0 ? (
-                  <p className="jd-empty-note">No machinery assets found.</p>
+                  <p className="jd-empty-note">No machinery sections found.</p>
                 ) : (
                   <table className="jd-table jd-table-click">
                     <thead>
                       <tr>
-                        <th>Machinery Asset Name</th>
+                        <th>Machinery Section Name</th>
                         <th>Breakdown Tasks Count</th>
                         <th>Total Down Hours</th>
                         <th>Awaiting Analysis</th>
@@ -2273,7 +2285,7 @@ export default function App() {
                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
                                  <button
                                    type="button"
-                                   title="Delete all tasks for this machinery asset"
+                                   title="Delete all tasks for this machinery section"
                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
                                    onClick={() => handleDeleteInventoryItem(item)}
                                  >
@@ -2292,7 +2304,7 @@ export default function App() {
           );
         }
 
-        // 2. DETAILED MACHINERY ASSET TASKS VIEW
+        // 2. DETAILED MACHINERY SECTION TASKS VIEW
         const grouped = {};
         filteredInventoryTasks.forEach((t) => {
           const key = t.project || "Unassigned";
@@ -2314,7 +2326,7 @@ export default function App() {
               style={{ width: "auto", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}
               onClick={() => setSelectedProject("")}
             >
-              ← Back to Machinery Assets
+              ← Back to Machinery Section
             </button>
 
             <div className="jd-stats">
@@ -2575,7 +2587,7 @@ export default function App() {
       )}
 
       {showInvForm && session.role === "management" && (
-        <AddMachineryAssetModal
+        <AddMachinerySectionModal
           onClose={() => setShowInvForm(false)}
           onSave={async (name) => {
             await handleCreateInventoryItem(name);
@@ -3141,9 +3153,11 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
       alert("Please enter a Task No.");
       return;
     }
-    const finalProject = isDropdownProject
-      ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
-      : (initial?.project || defaultProject || "");
+    const finalProject = (type === "inventory" && (defaultProject || initial?.project))
+      ? (initial?.project || defaultProject)
+      : (isDropdownProject
+          ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
+          : (initial?.project || defaultProject || ""));
     if (!finalProject) {
       alert("Please select or enter a name.");
       return;
@@ -3171,15 +3185,15 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     <div className="jd-modal-overlay" onClick={onClose}>
       <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="jd-modal-head">
-          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? "Add Inventory Task" : `Add Task under ${defaultProject}`)}</h3>
+          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? (defaultProject ? `Report Breakdown under ${defaultProject}` : "Add Inventory Task") : `Add Task under ${defaultProject}`)}</h3>
           <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
         {isDropdownProject ? (
           <>
-            <label className="jd-field-label">{type === "inventory" ? "Machinery Asset" : "Name"}</label>
-            {readOnly ? (
-              <input className="jd-input" value={initial?.project || ""} disabled={true} />
+            <label className="jd-field-label">{type === "inventory" ? "Machinery Section" : "Name"}</label>
+            {readOnly || (type === "inventory" && (defaultProject || initial?.project)) ? (
+              <input className="jd-input" value={initial?.project || defaultProject || ""} disabled={true} />
             ) : (
               <>
                 <select
@@ -3198,7 +3212,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
                     className="jd-input"
                     value={customNameInput}
                     onChange={(e) => setCustomNameInput(e.target.value)}
-                    placeholder={type === "inventory" ? "Enter custom machinery asset name" : "Enter custom maintenance name"}
+                    placeholder={type === "inventory" ? "Enter custom machinery section name" : "Enter custom maintenance name"}
                     style={{ marginTop: "8px" }}
                   />
                 )}
@@ -3207,7 +3221,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           </>
         ) : (
           <>
-            <label className="jd-field-label">{type === "inventory" ? "Machinery Asset" : "Project"}</label>
+            <label className="jd-field-label">Project</label>
             <input className="jd-input" value={initial?.project || defaultProject} disabled={true} />
           </>
         )}
@@ -3215,7 +3229,21 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         <label className="jd-field-label">Task Name</label>
         <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
 
-        {type !== "inventory" && (
+        {type === "inventory" ? (
+          <>
+            <label className="jd-field-label">Criticality Level</label>
+            <select
+              className="jd-input"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              disabled={readOnly}
+            >
+              <option value="A: > 20% Financial Impact">A: &gt; 20% Financial Impact</option>
+              <option value="B: < 20% Financial Impact">B: &lt; 20% Financial Impact</option>
+              <option value="C: Little to No Financial Impact">C: Little to No Financial Impact</option>
+            </select>
+          </>
+        ) : (
           <>
             <label className="jd-field-label">Location</label>
             <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
@@ -3436,21 +3464,21 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   );
 }
 
-function AddMachineryAssetModal({ onClose, onSave, tasks }) {
+function AddMachinerySectionModal({ onClose, onSave, tasks }) {
   const [assetName, setAssetName] = useState("");
   const [saving, setSaving] = useState(false);
 
   function submit() {
     const trimmed = assetName.trim();
     if (!trimmed) {
-      alert("Please enter a Machinery Asset Name.");
+      alert("Please enter a Machinery Section Name.");
       return;
     }
     const exists = tasks.some(
       (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmed.toLowerCase()
     );
     if (exists) {
-      alert("This Machinery Asset already exists!");
+      alert("This Machinery Section already exists!");
       return;
     }
     setSaving(true);
@@ -3461,23 +3489,23 @@ function AddMachineryAssetModal({ onClose, onSave, tasks }) {
     <div className="jd-modal-overlay" onClick={onClose}>
       <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="jd-modal-head">
-          <h3>Add Machinery Asset</h3>
+          <h3>Add Machinery Section</h3>
           <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <label className="jd-field-label">Asset Name</label>
+        <label className="jd-field-label">Machinery Section Name</label>
         <input
           className="jd-input"
           value={assetName}
           onChange={(e) => setAssetName(e.target.value)}
-          placeholder="e.g. Lathe Machine A1"
+          placeholder="e.g. Milling Section Machine 1"
           autoFocus
         />
 
         <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
           <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="jd-primary-btn" disabled={saving}>
-            {saving ? "Adding..." : "Add Asset"}
+            {saving ? "Adding..." : "Add Machinery Section"}
           </button>
         </div>
       </form>
