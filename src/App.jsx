@@ -60,6 +60,19 @@ const DEFAULT_PROJECT_NAMES = [
   "factory Sustainability and energy"
 ];
 
+const DEFAULT_INVENTORY_ITEMS = [
+  "Forklift A",
+  "Forklift B",
+  "Boiler 1",
+  "Boiler 2",
+  "Air Compressor 1",
+  "Air Compressor 2",
+  "Generator Set",
+  "Water Pump System",
+  "Chiller Unit",
+  "Packaging Machine"
+];
+
 const DEFAULT_ASSIGNEES = [
   "LIYANAGE",
   "INDIKA",
@@ -219,6 +232,12 @@ export default function App() {
   const [pToDate, setPToDate] = useState("");
   const [tFromDate, setTFromDate] = useState("");
   const [tToDate, setTToDate] = useState("");
+  const [invSearch, setInvSearch] = useState("");
+  const [invStatusFilter, setInvStatusFilter] = useState("All");
+  const [invChartStatusFilter, setInvChartStatusFilter] = useState("All");
+  const [invCreatorFilter, setInvCreatorFilter] = useState("All");
+  const [invFromDate, setInvFromDate] = useState("");
+  const [invToDate, setInvToDate] = useState("");
   const [err, setErr] = useState("");
   const [viewingPhotos, setViewingPhotos] = useState(null);
 
@@ -506,7 +525,7 @@ export default function App() {
   }
 
   function handleEditTaskSelect(t) {
-    setFormType(t.projectToken === "maintenance" ? "maintenance" : "project");
+    setFormType(t.projectToken);
     setEditTask(t);
   }
 
@@ -515,13 +534,13 @@ export default function App() {
     let nextList = tasks.filter((t) => t.id !== id);
     if (taskToDelete && taskToDelete.projectToken !== "maintenance" && taskToDelete.project) {
       const remainingTasksInProj = nextList.filter(
-        (t) => t.project && t.project.toLowerCase() === taskToDelete.project.toLowerCase()
+        (t) => t.projectToken === taskToDelete.projectToken && t.project && t.project.toLowerCase() === taskToDelete.project.toLowerCase()
       );
       if (remainingTasksInProj.length === 0) {
         const placeholder = {
           id: "P-" + Date.now(),
           project: taskToDelete.project,
-          projectToken: "project",
+          projectToken: taskToDelete.projectToken,
           task: "__init__",
           assignee: "",
           progress: 0,
@@ -546,8 +565,10 @@ export default function App() {
   }
 
   const maintenanceTasks = useMemo(() => tasks.filter(t => t.projectToken === "maintenance" && t.task !== "__init__"), [tasks]);
+  const inventoryTasks = useMemo(() => tasks.filter(t => t.projectToken === "inventory" && t.task !== "__init__"), [tasks]);
   const projectTasks = useMemo(() => tasks.filter(t =>
     t.projectToken !== "maintenance" &&
+    t.projectToken !== "inventory" &&
     t.task !== "__init__" &&
     t.task.toLowerCase() !== "main project" &&
     t.task.toLowerCase() !== "main" &&
@@ -557,7 +578,7 @@ export default function App() {
     const seen = new Set();
     const list = [];
     tasks.forEach((t) => {
-      if (t.projectToken !== "maintenance" && t.project) {
+      if (t.projectToken !== "maintenance" && t.projectToken !== "inventory" && t.project) {
         const val = t.project.trim();
         const lower = val.toLowerCase();
         if (!seen.has(lower)) {
@@ -848,6 +869,148 @@ export default function App() {
     });
   }, [projectTasks, pChartStatusFilter]);
 
+  const invTotals = useMemo(() => {
+    const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
+    let daysScope = 0;
+    let count = 0;
+    inventoryTasks.forEach((t) => {
+      count++;
+      const progressVal = Number(t.progress) || 0;
+      c[statusOf(progressVal)]++;
+      const daysVal = Number(t.daysRequired);
+      daysScope += isNaN(daysVal) ? 0 : daysVal;
+    });
+    return {
+      totalTasks: count,
+      daysScope,
+      statusCounts: c,
+    };
+  }, [inventoryTasks]);
+
+  const invOverdue = useMemo(() => {
+    const today = todayStr();
+    return inventoryTasks.filter((t) => t.endDate && t.endDate < today && Number(t.progress) < 100);
+  }, [inventoryTasks]);
+
+  const invByItem = useMemo(() => {
+    const map = {};
+    const filteredTasks = invChartStatusFilter === "All"
+      ? inventoryTasks
+      : inventoryTasks.filter(t => statusOf(t.progress) === invChartStatusFilter);
+
+    filteredTasks.forEach((t) => {
+      if (!t.project) return;
+      const origKey = t.project.trim();
+      const lowerKey = origKey.toLowerCase();
+      if (!map[lowerKey]) {
+        map[lowerKey] = {
+          itemName: origKey,
+          tasks: 0,
+          days: 0,
+          progressSum: 0,
+          statusCounts: { "Not Started": 0, "In Progress": 0, Completed: 0 }
+        };
+      }
+
+      const daysVal = Number(t.daysRequired);
+      const progVal = Number(t.progress);
+
+      map[lowerKey].tasks++;
+      map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+      map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
+      map[lowerKey].statusCounts[statusOf(progVal)]++;
+    });
+    return Object.values(map).map((p) => {
+      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
+      return {
+        ...p,
+        avgProgress: isNaN(avg) ? 0 : avg,
+        displayName: p.itemName
+      };
+    });
+  }, [inventoryTasks, invChartStatusFilter]);
+
+  const invByAssignee = useMemo(() => {
+    const today = todayStr();
+    const map = {};
+    inventoryTasks.forEach((t) => {
+      const assignees = t.assigneeName
+        ? t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean)
+        : ["Unassigned"];
+
+      assignees.forEach((assignee) => {
+        const origKey = assignee;
+        const lowerKey = origKey.toLowerCase();
+        if (!map[lowerKey]) {
+          map[lowerKey] = {
+            assignee: origKey,
+            tasks: 0,
+            completed: 0,
+            inProgress: 0,
+            notStarted: 0,
+            overdue: 0,
+            days: 0,
+            progressSum: 0
+          };
+        }
+
+        const daysVal = Number(t.daysRequired);
+        const progVal = Number(t.progress) || 0;
+
+        map[lowerKey].tasks++;
+        map[lowerKey].days += isNaN(daysVal) ? 0 : daysVal;
+        map[lowerKey].progressSum += isNaN(progVal) ? 0 : progVal;
+
+        if (progVal === 100) {
+          map[lowerKey].completed++;
+        } else if (progVal > 0) {
+          map[lowerKey].inProgress++;
+        } else {
+          map[lowerKey].notStarted++;
+        }
+
+        if (t.endDate && t.endDate < today && progVal < 100) {
+          map[lowerKey].overdue++;
+        }
+      });
+    });
+    return Object.values(map).map((p) => {
+      const avg = p.tasks ? Math.round(p.progressSum / p.tasks) : 0;
+      return {
+        ...p,
+        avgProgress: isNaN(avg) ? 0 : avg
+      };
+    });
+  }, [inventoryTasks]);
+
+  const filteredInventoryTasks = useMemo(() => {
+    let list = inventoryTasks;
+    if (invStatusFilter !== "All") {
+      list = list.filter(t => statusOf(t.progress) === invStatusFilter);
+    }
+    if (invCreatorFilter !== "All") {
+      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === invCreatorFilter.toLowerCase());
+    }
+    if (invFromDate) {
+      list = list.filter(t => (t.endDate || t.startDate) >= invFromDate);
+    }
+    if (invToDate) {
+      list = list.filter(t => (t.startDate || t.endDate) <= invToDate);
+    }
+    const query = invSearch.trim().toLowerCase();
+    if (query) {
+      list = list.filter(
+        (t) =>
+          (t.task || "").toLowerCase().includes(query) ||
+          (t.project || "").toLowerCase().includes(query) ||
+          (t.location || "").toLowerCase().includes(query) ||
+          (t.assigneeName || "").toLowerCase().includes(query) ||
+          (t.description || "").toLowerCase().includes(query)
+      );
+    }
+    return list;
+  }, [inventoryTasks, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
+
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
     if (mStatusFilter !== "All") {
@@ -1010,6 +1173,12 @@ export default function App() {
         <button className={view === "projects" ? "active" : ""} onClick={() => setView("projects")}>
           <ListChecks size={14} /> Projects List
         </button>
+        <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => setView("inv-dashboard")}>
+          <LayoutGrid size={14} /> Inventory Dashboard
+        </button>
+        <button className={view === "inventory" ? "active" : ""} onClick={() => setView("inventory")}>
+          <ListChecks size={14} /> Inventory Tasks
+        </button>
         {session.role === "management" && (
           <button className={view === "users" ? "active" : ""} onClick={() => setView("users")}>
             <Users size={14} /> Users
@@ -1032,6 +1201,12 @@ export default function App() {
             </button>
             <button className={view === "projects" ? "active" : ""} onClick={() => { setView("projects"); setMenuOpen(false); }}>
               <ListChecks size={14} /> Projects List
+            </button>
+            <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => { setView("inv-dashboard"); setMenuOpen(false); }}>
+              <LayoutGrid size={14} /> Inventory Dashboard
+            </button>
+            <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setMenuOpen(false); }}>
+              <ListChecks size={14} /> Inventory Tasks
             </button>
             {session.role === "management" && (
               <button className={view === "users" ? "active" : ""} onClick={() => { setView("users"); setMenuOpen(false); }}>
@@ -1864,6 +2039,326 @@ export default function App() {
         </main>
       )}
 
+      {view === "inv-dashboard" && (
+        <main className="jd-main">
+          <div className="jd-stats">
+            <StatCard label="Total Inventory Tasks" value={invTotals.totalTasks} />
+            <StatCard label="Days Scope" value={invTotals.daysScope} />
+            <StatCard label="Not started" value={invTotals.statusCounts["Not Started"]} color={STATUS_COLOR["Not Started"]} />
+            <StatCard label="In progress" value={invTotals.statusCounts["In Progress"]} color={STATUS_COLOR["In Progress"]} />
+            <StatCard label="Completed" value={invTotals.statusCounts.Completed} color={STATUS_COLOR.Completed} />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", marginTop: "10px", flexWrap: "wrap", gap: "12px" }}>
+            <h4 style={{ margin: 0, fontFamily: "'Oswald', sans-serif", fontSize: "14px", color: "var(--accent)" }}>Charts Preview Filter</h4>
+            <select
+              className="jd-input"
+              value={invChartStatusFilter}
+              onChange={(e) => setInvChartStatusFilter(e.target.value)}
+              style={{ maxWidth: "220px", fontSize: "13px", padding: "6px 10px" }}
+            >
+              <option value="All">All Tasks</option>
+              <option value="Not Started">Not Started Tasks</option>
+              <option value="In Progress">In Progress Tasks</option>
+              <option value="Completed">Completed Tasks</option>
+            </select>
+          </div>
+
+          <div className="jd-charts">
+            <div className="jd-panel">
+              <h4>Inventory Tasks by Item</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={invByItem}
+                      dataKey="tasks"
+                      nameKey="displayName"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {invByItem.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="jd-panel jd-panel-wide">
+              <h4>Average progress by item</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={invByItem} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid stroke="var(--border)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "var(--text)", fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
+                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                      {invByItem.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="jd-panel">
+              <h4>Tasks by Assignee</h4>
+              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={invByAssignee}
+                      dataKey="tasks"
+                      nameKey="assignee"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {invByAssignee.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={ASSIGNEE_CHART_COLORS[index % ASSIGNEE_CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="jd-panel">
+            <h4><AlertTriangle size={14} /> Overdue Inventory Tasks ({invOverdue.length})</h4>
+            {invOverdue.length === 0 ? (
+              <p className="jd-empty-note">Nothing overdue right now.</p>
+            ) : (
+              <table className="jd-table">
+                <thead>
+                  <tr><th>Task No</th><th>Item Name</th><th>Location</th><th>Assignee</th><th>End date</th><th>Progress</th></tr>
+                </thead>
+                <tbody>
+                  {invOverdue.map((t) => (
+                    <tr key={t.id} onClick={() => handleEditTaskSelect(t)}>
+                      <td><strong>{t.task}</strong></td>
+                      <td>{t.project || "—"}</td>
+                      <td>{t.location || "—"}</td>
+                      <td>{t.assigneeName || "—"}</td>
+                      <td className="jd-mono">{fmt(t.endDate)}</td>
+                      <td>{t.progress}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="jd-two-col">
+            <div className="jd-panel">
+              <h4>By assignee</h4>
+              <table className="jd-table">
+                <thead>
+                  <tr>
+                    <th>Assignee</th>
+                    <th>All</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Overdue</th>
+                    <th>Days engaged</th>
+                    <th>Avg progress</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invByAssignee.map((p) => (
+                    <tr key={p.assignee}>
+                      <td><strong>{p.assignee}</strong></td>
+                      <td><span className="jd-badge" style={{ background: "var(--panel-2)", color: "var(--text)" }}>{p.tasks}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(61,163,93,0.15)", color: "#3da35d" }}>{p.completed}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(242,100,48,0.15)", color: "#F26430" }}>{p.inProgress}</span></td>
+                      <td><span className="jd-badge" style={{ background: "rgba(255,107,107,0.15)", color: "#ff6b6b" }}>{p.overdue}</span></td>
+                      <td>{p.days}</td>
+                      <td><ProgressBar value={p.avgProgress} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      )}
+
+      {view === "inventory" && (
+        <main className="jd-main">
+          <div className="jd-stats">
+            <StatCard label="Total Inventory Tasks" value={inventoryTasks.length} />
+            <StatCard label="Days Scope" value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)} />
+            <StatCard label="Not Started" value={inventoryTasks.filter(t => statusOf(t.progress) === "Not Started").length} color={STATUS_COLOR["Not Started"]} />
+            <StatCard label="In Progress" value={inventoryTasks.filter(t => statusOf(t.progress) === "In Progress").length} color={STATUS_COLOR["In Progress"]} />
+            <StatCard label="Completed" value={inventoryTasks.filter(t => statusOf(t.progress) === "Completed").length} color={STATUS_COLOR.Completed} />
+          </div>
+
+          <div className="jd-panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+              <h4 style={{ margin: 0 }}>Inventory Tasks</h4>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
+                <input
+                  type="text"
+                  className="jd-input"
+                  value={invSearch}
+                  onChange={(e) => setInvSearch(e.target.value)}
+                  placeholder="Search by Task No, Item, Location..."
+                  style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+                  <input
+                    type="date"
+                    className="jd-input"
+                    value={invFromDate}
+                    onChange={(e) => setInvFromDate(e.target.value)}
+                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                  />
+                  {invFromDate && (
+                    <button type="button" onClick={() => setInvFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
+                  <input
+                    type="date"
+                    className="jd-input"
+                    value={invToDate}
+                    onChange={(e) => setInvToDate(e.target.value)}
+                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                  />
+                  {invToDate && (
+                    <button type="button" onClick={() => setInvToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+                <select
+                  className="jd-input"
+                  value={invStatusFilter}
+                  onChange={(e) => setInvStatusFilter(e.target.value)}
+                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Not Started">Not Started</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+                <select
+                  className="jd-input"
+                  value={invCreatorFilter}
+                  onChange={(e) => setInvCreatorFilter(e.target.value)}
+                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                >
+                  <option value="All">All Creators</option>
+                  {userNames.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                {session.role === "management" && (
+                  <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setShowForm(true); }}>
+                    <Plus size={14} /> Add Inventory Task
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="jd-table-container">
+              <table className="jd-table jd-table-click">
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>Task Name</th>
+                    <th>Location</th>
+                    <th>Assignees</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Days</th>
+                    <th>Progress</th>
+                    <th>Status</th>
+                    <th>Photos</th>
+                    <th>Created By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInventoryTasks.map((t) => {
+                    const overdueRow = t.endDate && t.endDate < todayStr() && t.progress < 100;
+                    const taskPhotos = t.photos || [];
+                    return (
+                      <tr key={t.id} onClick={() => handleEditTaskSelect(t)} className={overdueRow ? "jd-row-overdue" : ""}>
+                        <td><strong>{t.project}</strong></td>
+                        <td>
+                          <strong>{t.task}</strong>
+                          {t.subTasks && t.subTasks.length > 0 && (
+                            <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                              {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                            </div>
+                          )}
+                        </td>
+                        <td>{t.location || "—"}</td>
+                        <td>{t.assigneeName || "—"}</td>
+                        <td className="jd-mono">{fmt(t.startDate)}</td>
+                        <td className="jd-mono">{t.endDate ? fmt(t.endDate) : "—"}</td>
+                        <td>{t.daysRequired || "—"}</td>
+                        <td><ProgressBar value={t.progress} /></td>
+                        <td>
+                          <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress)] }}>
+                            {statusOf(t.progress)}
+                          </span>
+                        </td>
+                        <td>
+                          {taskPhotos.length > 0 ? (
+                            <div
+                              style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                              }}
+                            >
+                              <img
+                                src={taskPhotos[0]}
+                                alt="Thumbnail"
+                                style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid var(--border)" }}
+                              />
+                              {taskPhotos.length > 1 && (
+                                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text)", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                                  +{taskPhotos.length - 1}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: "var(--text-dim)", fontSize: "12px" }}>—</span>
+                          )}
+                        </td>
+                        <td>{t.createdBy}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredInventoryTasks.length === 0 && (
+                    <tr>
+                      <td colSpan={11} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                        No inventory tasks found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      )}
+
       {view === "users" && session.role === "management" && (
         <UserManagementPanel users={users} session={session} onSaveUsers={saveUsers} />
       )}
@@ -2375,21 +2870,24 @@ function AssigneeSelector({ selected, onChange, readOnly, defaultAssignees = DEF
 }
 
 function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, userNames, readOnly, onClose, onSave, onDelete, onQuickProgress, onPreviewPhoto }) {
-  const isMaintenance = initial ? (initial.projectToken === "maintenance") : (defaultType === "maintenance");
+  const type = initial ? initial.projectToken : defaultType;
+  const isDropdownProject = type === "maintenance" || type === "inventory";
 
   const [selectedNameOption, setSelectedNameOption] = useState(() => {
     const val = initial?.project || "";
-    if (DEFAULT_NAMES.includes(val)) {
+    const list = type === "inventory" ? DEFAULT_INVENTORY_ITEMS : DEFAULT_NAMES;
+    if (list.includes(val)) {
       return val;
     }
     if (!val) {
-      return DEFAULT_NAMES[0];
+      return list[0];
     }
     return "__custom__";
   });
   const [customNameInput, setCustomNameInput] = useState(() => {
     const val = initial?.project || "";
-    return DEFAULT_NAMES.includes(val) ? "" : val;
+    const list = type === "inventory" ? DEFAULT_INVENTORY_ITEMS : DEFAULT_NAMES;
+    return list.includes(val) ? "" : val;
   });
 
   const [task, setTask] = useState(initial?.task || "");
@@ -2459,7 +2957,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
       alert("Please enter a Task No.");
       return;
     }
-    const finalProject = isMaintenance
+    const finalProject = isDropdownProject
       ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
       : (initial?.project || defaultProject || "");
     if (!finalProject) {
@@ -2469,7 +2967,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     onSave(
       {
         project: finalProject,
-        projectToken: isMaintenance ? "maintenance" : "project",
+        projectToken: type,
         task: task.trim(),
         location: location.trim(),
         assigneeName: selectedAssignees.join(", "),
@@ -2489,13 +2987,13 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     <div className="jd-modal-overlay" onClick={onClose}>
       <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="jd-modal-head">
-          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (isMaintenance ? "Add Maintenance Task" : `Add Task under ${defaultProject}`)}</h3>
+          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? "Add Inventory Task" : `Add Task under ${defaultProject}`)}</h3>
           <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {isMaintenance ? (
+        {isDropdownProject ? (
           <>
-            <label className="jd-field-label">Name</label>
+            <label className="jd-field-label">{type === "inventory" ? "Item Name" : "Name"}</label>
             {readOnly ? (
               <input className="jd-input" value={initial?.project || ""} disabled={true} />
             ) : (
@@ -2505,7 +3003,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
                   value={selectedNameOption}
                   onChange={(e) => setSelectedNameOption(e.target.value)}
                 >
-                  {DEFAULT_NAMES.map((n) => (
+                  {(type === "inventory" ? DEFAULT_INVENTORY_ITEMS : DEFAULT_NAMES).map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                   <option value="__custom__">Custom Name...</option>
@@ -2516,7 +3014,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
                     className="jd-input"
                     value={customNameInput}
                     onChange={(e) => setCustomNameInput(e.target.value)}
-                    placeholder="Enter custom maintenance name"
+                    placeholder={type === "inventory" ? "Enter custom item name" : "Enter custom maintenance name"}
                     style={{ marginTop: "8px" }}
                   />
                 )}
