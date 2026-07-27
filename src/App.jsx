@@ -2199,11 +2199,10 @@ export default function App() {
               <table className="jd-table">
                 <thead>
                   <tr>
-                    <th>Task No</th>
+                    <th>Machinery</th>
                     <th>Machinery Section</th>
-                    <th>Criticality Level</th>
                     <th>Assignee</th>
-                    <th>Date of Breakdown</th>
+                    <th>Date &amp; Time of Breakdown</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -2212,20 +2211,8 @@ export default function App() {
                     <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => { setSelectedProject(t.project || ""); handleEditTaskSelect(t); setView("inventory"); }}>
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
-                      <td>
-                        <span
-                          className="jd-badge"
-                          style={{
-                            background: t.location?.startsWith("A:") ? "rgba(239, 68, 68, 0.15)" : t.location?.startsWith("B:") ? "rgba(245, 158, 11, 0.15)" : "var(--panel-2)",
-                            color: t.location?.startsWith("A:") ? "#ef4444" : t.location?.startsWith("B:") ? "#f59e0b" : "var(--text)",
-                            fontWeight: "500"
-                          }}
-                        >
-                          {t.location || "C: Little to No Financial Impact"}
-                        </span>
-                      </td>
                       <td>{t.assigneeName || "—"}</td>
-                      <td className="jd-mono">{fmt(t.startDate)}</td>
+                      <td className="jd-mono">{fmt(t.startDate)}{t.breakdownTime ? ` ${t.breakdownTime}` : ""}</td>
                       <td>
                         <span className="jd-status-pill" style={{ "--c": STATUS_COLOR[statusOf(t.progress, "inventory")] }}>
                           {statusOf(t.progress, "inventory")}
@@ -3209,6 +3196,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     return false;
   });
   const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
+  const [breakdownTime, setBreakdownTime] = useState(initial?.breakdownTime || "09:00");
   const [daysRequired, setDaysRequired] = useState(initial?.daysRequired || "");
   const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || "");
   const [progress, setProgress] = useState(initial?.progress ?? 0);
@@ -3260,7 +3248,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
   function submit() {
     if (readOnly) return;
     if (!task.trim()) {
-      alert("Please enter a Task No.");
+      alert(type === "inventory" ? "Please enter a Machinery name." : "Please enter a Task No.");
       return;
     }
     const finalProject = (type === "inventory" && (defaultProject || initial?.project))
@@ -3280,6 +3268,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         location: location.trim(),
         assigneeName: selectedAssignees.join(", "),
         startDate: noDate ? null : startDate,
+        breakdownTime: noDate ? null : breakdownTime,
         daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
         endDateOverride: noDate ? null : (endDateOverride || computedEnd),
         progress: Number(progress),
@@ -3336,24 +3325,10 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           </>
         )}
 
-        <label className="jd-field-label">Task Name</label>
-        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
+        <label className="jd-field-label">{type === "inventory" ? "Machinery" : "Task Name"}</label>
+        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder={type === "inventory" ? "e.g. Grinder A97" : "e.g. T-1001"} disabled={readOnly} />
 
-        {type === "inventory" ? (
-          <>
-            <label className="jd-field-label">Criticality Level</label>
-            <select
-              className="jd-input"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              disabled={readOnly}
-            >
-              <option value="A: > 20% Financial Impact">A: &gt; 20% Financial Impact</option>
-              <option value="B: < 20% Financial Impact">B: &lt; 20% Financial Impact</option>
-              <option value="C: Little to No Financial Impact">C: Little to No Financial Impact</option>
-            </select>
-          </>
-        ) : (
+        {type !== "inventory" && (
           <>
             <label className="jd-field-label">Location</label>
             <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
@@ -3379,66 +3354,70 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           style={{ minHeight: "80px", resize: "vertical" }}
         />
 
-        <label className="jd-field-label">Sub-tasks</label>
-        <div style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          {/* Sub-tasks list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto" }}>
-            {subTasks.map((st, idx) => (
-              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13px", color: st.completed ? "var(--text-dim)" : "var(--text)", textDecoration: st.completed ? "line-through" : "none", flex: 1, userSelect: "none" }}>
-                  <input
-                    type="checkbox"
-                    checked={st.completed}
-                    onChange={() => handleToggleSubTask(idx)}
-                    disabled={readOnly}
-                    style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
-                  />
-                  <span>{st.text}</span>
-                </label>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSubTask(idx)}
-                    style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+        {type !== "inventory" && (
+          <>
+            <label className="jd-field-label">Sub-tasks</label>
+            <div style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+              {/* Sub-tasks list */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto" }}>
+                {subTasks.map((st, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13px", color: st.completed ? "var(--text-dim)" : "var(--text)", textDecoration: st.completed ? "line-through" : "none", flex: 1, userSelect: "none" }}>
+                      <input
+                        type="checkbox"
+                        checked={st.completed}
+                        onChange={() => handleToggleSubTask(idx)}
+                        disabled={readOnly}
+                        style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
+                      />
+                      <span>{st.text}</span>
+                    </label>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubTask(idx)}
+                        style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {subTasks.length === 0 && (
+                  <span style={{ fontSize: "12px", color: "var(--text-dim)", fontStyle: "italic" }}>No sub-tasks defined</span>
                 )}
               </div>
-            ))}
-            {subTasks.length === 0 && (
-              <span style={{ fontSize: "12px", color: "var(--text-dim)", fontStyle: "italic" }}>No sub-tasks defined</span>
-            )}
-          </div>
 
-          {/* Add Sub-task form */}
-          {!readOnly && (
-            <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-              <input
-                type="text"
-                className="jd-input"
-                style={{ flex: 1, margin: 0, padding: "6px 10px", fontSize: "12.5px" }}
-                placeholder="Add new sub-task..."
-                value={subTaskInput}
-                onChange={(e) => setSubTaskInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddSubTask();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="jd-primary-btn"
-                onClick={handleAddSubTask}
-                style={{ padding: "6px 12px", fontSize: "12.5px" }}
-              >
-                Add
-              </button>
+              {/* Add Sub-task form */}
+              {!readOnly && (
+                <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                  <input
+                    type="text"
+                    className="jd-input"
+                    style={{ flex: 1, margin: 0, padding: "6px 10px", fontSize: "12.5px" }}
+                    placeholder="Add new sub-task..."
+                    value={subTaskInput}
+                    onChange={(e) => setSubTaskInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddSubTask();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="jd-primary-btn"
+                    onClick={handleAddSubTask}
+                    style={{ padding: "6px 12px", fontSize: "12.5px" }}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 16px" }}>
           <input
@@ -3454,16 +3433,33 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
           </label>
         </div>
 
-        <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-          <div>
-            <label className="jd-field-label"><Calendar size={12} /> {type === "inventory" ? "Date and Time of Breakdown" : "Start date"}</label>
-            <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+        {type === "inventory" ? (
+          <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+            <div>
+              <label className="jd-field-label"><Calendar size={12} /> Date of Breakdown</label>
+              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+            </div>
+            <div>
+              <label className="jd-field-label">Time of Breakdown</label>
+              <input type="time" className="jd-input" value={noDate ? "" : breakdownTime} onChange={(e) => setBreakdownTime(e.target.value)} disabled={readOnly || noDate} />
+            </div>
+            <div>
+              <label className="jd-field-label">Total Down Hours</label>
+              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+            </div>
           </div>
-          <div>
-            <label className="jd-field-label">{type === "inventory" ? "Total Down Hours" : "Days required"}</label>
-            <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+        ) : (
+          <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+            <div>
+              <label className="jd-field-label"><Calendar size={12} /> Start date</label>
+              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+            </div>
+            <div>
+              <label className="jd-field-label">Days required</label>
+              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
           <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
