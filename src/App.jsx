@@ -2184,8 +2184,8 @@ export default function App() {
               <div className="jd-stats">
                 <StatCard label="Total Assets" value={inventoryItemsList.length} />
                 <StatCard
-                  label="Total Down Days"
-                  value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0)}
+                  label="Total Down Hours"
+                  value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24}
                 />
                 <StatCard
                   label="Awaiting Analysis"
@@ -2235,7 +2235,7 @@ export default function App() {
                       <tr>
                         <th>Machinery Asset Name</th>
                         <th>Breakdown Tasks Count</th>
-                        <th>Total Down Days</th>
+                        <th>Total Down Hours</th>
                         <th>Awaiting Analysis</th>
                         <th>In Progress</th>
                         <th>Ready to Begin Production</th>
@@ -2245,7 +2245,7 @@ export default function App() {
                     <tbody>
                       {filteredInventoryItemsList.map((item) => {
                         const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
-                        const downDays = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
+                        const downHours = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
                         const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
                         const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
                         const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
@@ -2259,7 +2259,7 @@ export default function App() {
                               </div>
                             </td>
                             <td>{tasksInItem.length} breakdown tasks</td>
-                            <td>{downDays} days</td>
+                            <td>{downHours} hrs</td>
                             <td>
                               {awaiting > 0 ? (
                                 <span style={{ fontSize: "11px", fontWeight: "600", color: "#ff6b6b", background: "rgba(255, 107, 107, 0.12)", padding: "2px 5px", borderRadius: "3px" }}>
@@ -2313,7 +2313,7 @@ export default function App() {
         });
 
         const currentAssetTasks = filteredInventoryTasks.filter(t => t.task !== "__init__");
-        const downDaysSum = currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0);
+        const downHoursSum = currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
         const awaitingCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
         const inProgressCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
         const readyCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
@@ -2331,7 +2331,7 @@ export default function App() {
 
             <div className="jd-stats">
               <StatCard label="Total Tasks" value={currentAssetTasks.length} />
-              <StatCard label="Total Down Days" value={downDaysSum} />
+              <StatCard label="Total Down Hours" value={downHoursSum} />
               <StatCard label="Awaiting Analysis" value={awaitingCount} color={STATUS_COLOR["Awaiting Operator Analysis"]} />
               <StatCard label="In Progress" value={inProgressCount} color={STATUS_COLOR["Maintenance in Progress"]} />
               <StatCard label="Ready to Begin" value={readyCount} color={STATUS_COLOR["Ready to Begin Production"]} />
@@ -2417,7 +2417,7 @@ export default function App() {
                       <th>Assignee</th>
                       <th>Date and Time of Breakdown</th>
                       <th>Fault Reason</th>
-                      <th>Total Down Days</th>
+                      <th>Total Down Hours</th>
                       <th>Criticality Level</th>
                       <th>Id</th>
                       {session.role === "management" && <th style={{ width: "40px" }}></th>}
@@ -2506,7 +2506,7 @@ export default function App() {
                               </td>
                               <td className="jd-mono">{fmt(t.startDate)}</td>
                               <td>{t.description || "—"}</td>
-                              <td>{t.daysRequired || "0"}</td>
+                              <td>{((Number(t.daysRequired) || 0) * 24)} hrs</td>
                               <td>
                                 <span
                                   className="jd-badge"
@@ -3378,7 +3378,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
             <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
           </div>
           <div>
-            <label className="jd-field-label">{type === "inventory" ? "Total Down Days" : "Days required"}</label>
+            <label className="jd-field-label">{type === "inventory" ? "Total Down Hours" : "Days required"}</label>
             <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
           </div>
         </div>
