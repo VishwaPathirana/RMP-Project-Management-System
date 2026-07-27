@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon, FolderOpen, FileText
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -125,34 +125,6 @@ function fmt(dateStr) {
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
-}
-function AssigneeAvatar({ name }) {
-  if (!name) return null;
-  const initials = name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
-  const color = colors[Math.abs(hash) % colors.length];
-  return (
-    <div style={{
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: "24px",
-      height: "24px",
-      borderRadius: "50%",
-      background: color,
-      color: "#fff",
-      fontSize: "11px",
-      fontWeight: "600",
-      marginRight: "8px",
-      flexShrink: 0
-    }}>
-      {initials}
-    </div>
-  );
 }
 
 export default function App() {
@@ -276,7 +248,6 @@ export default function App() {
   const [invCreatorFilter, setInvCreatorFilter] = useState("All");
   const [invFromDate, setInvFromDate] = useState("");
   const [invToDate, setInvToDate] = useState("");
-  const [collapsedAssets, setCollapsedAssets] = useState({});
   const [err, setErr] = useState("");
   const [viewingPhotos, setViewingPhotos] = useState(null);
 
@@ -1001,18 +972,6 @@ export default function App() {
     }
     return list;
   }, [inventoryTasks, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
-
-  const groupedInventory = useMemo(() => {
-    const groups = {};
-    filteredInventoryTasks.forEach((t) => {
-      const asset = t.project || "Unassigned Asset";
-      if (!groups[asset]) {
-        groups[asset] = [];
-      }
-      groups[asset].push(t);
-    });
-    return groups;
-  }, [filteredInventoryTasks]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
@@ -2147,206 +2106,177 @@ export default function App() {
         </main>
       )}
 
-      {view === "inventory" && (
-        <main className="jd-main">
-          <div className="jd-panel">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
-              <h4 style={{ margin: 0 }}>Active Breakdown Maintenance Tasks</h4>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
-                <input
-                  type="text"
-                  className="jd-input"
-                  value={invSearch}
-                  onChange={(e) => setInvSearch(e.target.value)}
-                  placeholder="Search by Brief Description, Asset, Criticality..."
-                  style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+      {view === "inventory" && (() => {
+        const grouped = {};
+        filteredInventoryTasks.forEach((t) => {
+          const key = t.project || "Unassigned";
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(t);
+        });
+
+        return (
+          <main className="jd-main">
+            <div className="jd-panel" style={{ paddingBottom: "24px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <h4 style={{ margin: 0, fontSize: "16px" }}>Active Breakdown Maintenance Tasks</h4>
+                  <span style={{ fontSize: "12px", color: "var(--text-dim)", cursor: "pointer" }}>▼</span>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                   <input
-                    type="date"
+                    type="text"
                     className="jd-input"
-                    value={invFromDate}
-                    onChange={(e) => setInvFromDate(e.target.value)}
-                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                    value={invSearch}
+                    onChange={(e) => setInvSearch(e.target.value)}
+                    placeholder="Search by Brief Description, Asset, Criticality..."
+                    style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                   />
-                  {invFromDate && (
-                    <button type="button" onClick={() => setInvFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
-                      <X size={13} />
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                    <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>From:</span>
+                    <input
+                      type="date"
+                      className="jd-input"
+                      value={invFromDate}
+                      onChange={(e) => setInvFromDate(e.target.value)}
+                      style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                    />
+                    {invFromDate && (
+                      <button type="button" onClick={() => setInvFromDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
+                    <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
+                    <input
+                      type="date"
+                      className="jd-input"
+                      value={invToDate}
+                      onChange={(e) => setInvToDate(e.target.value)}
+                      style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
+                    />
+                    {invToDate && (
+                      <button type="button" onClick={() => setInvToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    className="jd-input"
+                    value={invStatusFilter}
+                    onChange={(e) => setInvStatusFilter(e.target.value)}
+                    style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Awaiting Operator Analysis">Awaiting Operator Analysis</option>
+                    <option value="Escalated to Maintenance Supervisor">Escalated to Maintenance Supervisor</option>
+                    <option value="Maintenance in Progress">Maintenance in Progress</option>
+                    <option value="Ready to Begin Production">Ready to Begin Production</option>
+                  </select>
+                  <select
+                    className="jd-input"
+                    value={invCreatorFilter}
+                    onChange={(e) => setInvCreatorFilter(e.target.value)}
+                    style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                  >
+                    <option value="All">All Creators</option>
+                    {userNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  {session.role === "management" && (
+                    <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setShowForm(true); }}>
+                      <Plus size={14} /> Add Inventory Task
                     </button>
                   )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "2px 8px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>To:</span>
-                  <input
-                    type="date"
-                    className="jd-input"
-                    value={invToDate}
-                    onChange={(e) => setInvToDate(e.target.value)}
-                    style={{ border: "none", background: "transparent", padding: "4px 0", width: "115px", fontSize: "12.5px" }}
-                  />
-                  {invToDate && (
-                    <button type="button" onClick={() => setInvToDate("")} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}>
-                      <X size={13} />
-                    </button>
-                  )}
+              </div>
+
+              {/* Grouping and height bar matching second image */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--panel-2)", border: "1px solid var(--border)", borderBottom: "none", borderTopLeftRadius: "8px", borderTopRightRadius: "8px", flexWrap: "wrap", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
+                  <span style={{ color: "var(--text-dim)" }}>Grouped By:</span>
+                  <strong style={{ color: "var(--accent)" }}>Asset Name</strong>
+                  <span style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline", fontSize: "11.5px", marginLeft: "4px" }}>Edit Grouping and Formatting</span>
                 </div>
-                <select
-                  className="jd-input"
-                  value={invStatusFilter}
-                  onChange={(e) => setInvStatusFilter(e.target.value)}
-                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Awaiting Operator Analysis">Awaiting Operator Analysis</option>
-                  <option value="Escalated to Maintenance Supervisor">Escalated to Maintenance Supervisor</option>
-                  <option value="Maintenance in Progress">Maintenance in Progress</option>
-                  <option value="Ready to Begin Production">Ready to Begin Production</option>
-                </select>
-                <select
-                  className="jd-input"
-                  value={invCreatorFilter}
-                  onChange={(e) => setInvCreatorFilter(e.target.value)}
-                  style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
-                >
-                  <option value="All">All Creators</option>
-                  {userNames.map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
-                {session.role === "management" && (
-                  <button className="jd-primary-btn" onClick={() => { setFormType("inventory"); setEditTask(null); setShowForm(true); }}>
-                    <Plus size={14} /> Add Inventory Task
-                  </button>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "12px" }}>
+                  <span style={{ color: "var(--text-dim)" }}>Row Height:</span>
+                  <span style={{ cursor: "pointer", opacity: 0.8, letterSpacing: "1px" }}>☰ ☲ ☵</span>
+                  <span style={{ color: "var(--text-dim)" }}>Total Assets: <strong>{Object.keys(grouped).length}</strong> — Total Tasks: <strong>{inventoryTasks.length}</strong></span>
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "6px 0 14px", fontSize: "12px", color: "var(--text-dim)", flexWrap: "wrap", gap: "10px" }}>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <span>Grouped By: <strong style={{ color: "var(--accent)" }}>Asset Name</strong> <span style={{ color: "var(--accent)", textDecoration: "underline", cursor: "pointer", marginLeft: "4px", fontSize: "11px" }}>Edit Grouping</span></span>
-              </div>
-              <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-                <span>Row Height: <strong style={{ color: "var(--accent)" }}>===</strong></span>
-                <span>Total Assets: <strong>{Object.keys(groupedInventory).length}</strong></span>
-                <span>Total Tasks: <strong>{filteredInventoryTasks.length}</strong></span>
-              </div>
-            </div>
-
-            <div className="jd-table-container">
-              <table className="jd-table">
-                <thead>
-                  <tr>
-                    <th style={{ paddingLeft: "16px" }}>Brief Description</th>
-                    <th>Status</th>
-                    <th>Assignee</th>
-                    <th>Date and Time of Breakdown</th>
-                    <th>Fault Reason</th>
-                    <th>Total Down Days</th>
-                    <th>Criticality Level</th>
-                    <th>Id</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(groupedInventory).map(([assetName, tasks]) => {
-                    const isCollapsed = !!collapsedAssets[assetName];
-                    return (
-                      <tr key={assetName} style={{ display: "contents" }}>
-                        {/* Parent Group Header Row */}
-                        <tr
-                          onClick={() => setCollapsedAssets(prev => ({ ...prev, [assetName]: !isCollapsed }))}
-                          style={{
-                            background: "var(--panel-2)",
-                            cursor: "pointer",
-                            fontWeight: "600",
-                            borderBottom: "1px solid var(--border)"
-                          }}
-                        >
-                          <td colSpan={8} style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{
-                              display: "inline-flex",
-                              transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s",
-                              fontSize: "9px",
-                              color: "var(--text-dim)"
-                            }}>
-                              ▼
-                            </span>
-                            <span style={{ fontSize: "13px" }}>📁</span>
-                            <span style={{ fontSize: "13px", color: "var(--text)" }}>{assetName}</span>
-                            <span
-                              className="jd-badge"
-                              style={{
-                                background: "rgba(242,100,48,0.12)",
-                                color: "var(--accent)",
-                                fontSize: "11px",
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                fontWeight: "normal",
-                                marginLeft: "8px"
-                              }}
-                            >
-                              Item Count: {tasks.length}
-                            </span>
+              <div className="jd-table-container" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                <table className="jd-table jd-table-click">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "30%" }}>Brief Description</th>
+                      <th>Status</th>
+                      <th>Assignee</th>
+                      <th>Date and Time of Breakdown</th>
+                      <th>Fault Reason</th>
+                      <th>Total Down Days</th>
+                      <th>Criticality Level</th>
+                      <th>Id</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(grouped).map(([assetName, assetTasks]) => (
+                      <Fragment key={assetName}>
+                        {/* Folder Row for Asset */}
+                        <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
+                          <td colSpan={8} style={{ padding: "10px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
+                              <FolderOpen size={16} style={{ color: "var(--accent)" }} />
+                              <strong style={{ fontSize: "13.5px" }}>{assetName}</strong>
+                              <span style={{ fontSize: "11px", fontWeight: "normal", background: "var(--panel-2)", color: "var(--text-dim)", padding: "2px 6px", borderRadius: "4px", marginLeft: "8px", border: "1px solid var(--border)" }}>
+                                Item Count: {assetTasks.length}
+                              </span>
+                            </div>
                           </td>
                         </tr>
 
-                        {/* Child Rows */}
-                        {!isCollapsed && tasks.map((t) => {
+                        {/* Tasks under this Asset */}
+                        {assetTasks.map((t) => {
                           const isMIP = statusOf(t.progress, "inventory") === "Maintenance in Progress";
                           const isEsc = statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor";
-                          const isReady = statusOf(t.progress, "inventory") === "Ready to Begin Production";
-                          const isAwaiting = statusOf(t.progress, "inventory") === "Awaiting Operator Analysis";
                           const taskPhotos = t.photos || [];
-
-                          let rowBg = "";
-                          let leftBorder = "";
-                          if (isMIP) {
-                            rowBg = "rgba(59, 130, 246, 0.08)";
-                            leftBorder = "4px solid #3b82f6";
-                          } else if (isEsc) {
-                            rowBg = "rgba(245, 158, 11, 0.08)";
-                            leftBorder = "4px solid #f59e0b";
-                          } else if (isReady) {
-                            rowBg = "rgba(16, 185, 129, 0.08)";
-                            leftBorder = "4px solid #10b981";
-                          } else if (isAwaiting) {
-                            rowBg = "rgba(107, 114, 128, 0.08)";
-                            leftBorder = "4px solid #6b7280";
-                          }
+                          const assigneesList = t.assigneeName
+                            ? t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean)
+                            : [];
 
                           return (
                             <tr
                               key={t.id}
                               onClick={() => handleEditTaskSelect(t)}
                               style={{
-                                background: rowBg,
-                                borderLeft: leftBorder,
-                                cursor: "pointer",
-                                transition: "background 0.2s"
+                                background: isMIP ? "rgba(59, 130, 246, 0.08)" : isEsc ? "rgba(245, 158, 11, 0.08)" : "",
+                                borderLeft: isMIP ? "4px solid #3b82f6" : isEsc ? "4px solid #f59e0b" : ""
                               }}
-                              className="jd-inventory-child-row"
                             >
-                              <td style={{ paddingLeft: "32px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                <span style={{ fontSize: "13px" }}>📄</span>
-                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                  <strong>{t.task}</strong>
-                                  {t.subTasks && t.subTasks.length > 0 && (
-                                    <span style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
-                                      {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
-                                    </span>
-                                  )}
-                                  {taskPhotos.length > 0 && (
-                                    <div
-                                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
-                                      }}
-                                    >
-                                      <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
-                                    </div>
-                                  )}
+                              <td style={{ paddingLeft: "32px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <FileText size={15} style={{ color: "var(--text-dim)", flexShrink: 0 }} />
+                                  <div>
+                                    <span style={{ fontSize: "13px", fontWeight: "500" }}>{t.task}</span>
+                                    {t.subTasks && t.subTasks.length > 0 && (
+                                      <div style={{ fontSize: "10.5px", color: "var(--text-dim)", fontWeight: "normal", marginTop: "2px" }}>
+                                        {t.subTasks.filter(st => st.completed).length}/{t.subTasks.length} sub-tasks
+                                      </div>
+                                    )}
+                                    {taskPhotos.length > 0 && (
+                                      <div
+                                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", marginTop: "4px" }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewingPhotos({ title: `${t.task} — ${t.project}`, photos: taskPhotos });
+                                        }}
+                                      >
+                                        <span style={{ fontSize: "10.5px", color: "var(--accent)", textDecoration: "underline" }}>View Photos ({taskPhotos.length})</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td>
@@ -2355,9 +2285,18 @@ export default function App() {
                                 </span>
                               </td>
                               <td>
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                  <AssigneeAvatar name={t.assigneeName} />
-                                  <span>{t.assigneeName || "—"}</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                  {assigneesList.map((name) => (
+                                    <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--panel-2)", padding: "2px 6px", borderRadius: "20px", border: "1px solid var(--border)" }}>
+                                      <img
+                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff&rounded=true&size=24`}
+                                        alt={name}
+                                        style={{ width: "16px", height: "16px", borderRadius: "50%" }}
+                                      />
+                                      <span style={{ fontSize: "11.5px" }}>{name}</span>
+                                    </div>
+                                  ))}
+                                  {assigneesList.length === 0 && <span style={{ color: "var(--text-dim)" }}>—</span>}
                                 </div>
                               </td>
                               <td className="jd-mono">{fmt(t.startDate)}</td>
@@ -2379,22 +2318,22 @@ export default function App() {
                             </tr>
                           );
                         })}
+                      </Fragment>
+                    ))}
+                    {Object.keys(grouped).length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                          No breakdown tasks found.
+                        </td>
                       </tr>
-                    );
-                  })}
-                  {filteredInventoryTasks.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
-                        No breakdown tasks found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </main>
-      )}
+          </main>
+        );
+      })()}
 
       {view === "users" && session.role === "management" && (
         <UserManagementPanel users={users} session={session} onSaveUsers={saveUsers} />
