@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon, FolderOpen, FileText
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, Edit2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon, FolderOpen, FileText
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -227,6 +227,7 @@ export default function App() {
   }, [view, selectedProject]);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showInvForm, setShowInvForm] = useState(false);
+  const [editingInvItem, setEditingInvItem] = useState(null);
   const [formType, setFormType] = useState("maintenance");
   const [mSearch, setMSearch] = useState("");
   const [pSearch, setPSearch] = useState("");
@@ -578,6 +579,32 @@ export default function App() {
     await saveTasks(nextList);
   }
 
+  async function handleRenameInventoryItem(oldName, newName) {
+    if (!newName || !newName.trim()) return;
+    const trimmedNew = newName.trim();
+    if (trimmedNew.toLowerCase() === oldName.toLowerCase()) return;
+
+    const exists = tasks.some(
+      (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmedNew.toLowerCase()
+    );
+    if (exists) {
+      alert("A Machinery Section with this name already exists!");
+      return;
+    }
+
+    const nextList = tasks.map((t) => {
+      if (t.projectToken === "inventory" && t.project && t.project.toLowerCase() === oldName.toLowerCase()) {
+        return { ...t, project: trimmedNew, updatedAt: new Date().toISOString() };
+      }
+      return t;
+    });
+
+    await saveTasks(nextList);
+    if (selectedProject && selectedProject.toLowerCase() === oldName.toLowerCase()) {
+      setSelectedProject(trimmedNew);
+    }
+  }
+
   function handleEditTaskSelect(t) {
     setFormType(t.projectToken);
     setEditTask(t);
@@ -585,8 +612,6 @@ export default function App() {
 
   async function deleteTask(id) {
     const taskToDelete = tasks.find((t) => t.id === id);
-    const taskName = taskToDelete?.task ? ` "${taskToDelete.task}"` : "";
-    if (!window.confirm(`Are you sure you want to delete task${taskName}? This action cannot be undone.`)) return;
     let nextList = tasks.filter((t) => t.id !== id);
     if (taskToDelete && taskToDelete.projectToken !== "maintenance" && taskToDelete.project) {
       const remainingTasksInProj = nextList.filter(
@@ -2284,16 +2309,24 @@ export default function App() {
                               ) : "—"}
                             </td>
                              {session.role === "management" && (
-                               <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
-                                 <button
-                                   type="button"
-                                   title="Delete all tasks for this machinery section"
-                                   style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
-                                   onClick={() => handleDeleteInventoryItem(item)}
-                                 >
-                                   <Trash2 size={14} />
-                                 </button>
-                               </td>
+                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                                  <button
+                                    type="button"
+                                    title="Edit machinery section name"
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center", marginRight: "6px" }}
+                                    onClick={() => setEditingInvItem(item)}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Delete all tasks for this machinery section"
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
+                                    onClick={() => handleDeleteInventoryItem(item)}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
                              )}
                            </tr>
                         );
@@ -2343,6 +2376,16 @@ export default function App() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <h4 style={{ margin: 0, fontSize: "16px" }}>Breakdown Tasks: {selectedProject}</h4>
+                  {session.role === "management" && (
+                    <button
+                      type="button"
+                      title="Edit Machinery Section Name"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
+                      onClick={() => setEditingInvItem(selectedProject)}
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1, justifyContent: "flex-end", maxWidth: "880px" }}>
                   <input
@@ -2594,6 +2637,18 @@ export default function App() {
           onSave={async (name) => {
             await handleCreateInventoryItem(name);
             setShowInvForm(false);
+          }}
+          tasks={tasks}
+        />
+      )}
+
+      {editingInvItem && session.role === "management" && (
+        <EditMachinerySectionModal
+          initialName={editingInvItem}
+          onClose={() => setEditingInvItem(null)}
+          onSave={async (oldName, newName) => {
+            await handleRenameInventoryItem(oldName, newName);
+            setEditingInvItem(null);
           }}
           tasks={tasks}
         />
@@ -3136,7 +3191,6 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
   const handleDeleteSubTask = (idx) => {
     if (readOnly) return;
-    if (!window.confirm("Are you sure you want to delete this sub-task?")) return;
     const nextSubTasks = subTasks.filter((_, i) => i !== idx);
     setSubTasks(nextSubTasks);
     const completedCount = nextSubTasks.filter(st => st.completed).length;
@@ -3409,9 +3463,7 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
                     className="jd-photo-remove"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm("Are you sure you want to remove this photo?")) {
-                        setPhotos(photos.filter((_, i) => i !== idx));
-                      }
+                      setPhotos(photos.filter((_, i) => i !== idx));
                     }}
                   >
                     <X size={12} />
@@ -3511,6 +3563,59 @@ function AddMachinerySectionModal({ onClose, onSave, tasks }) {
           <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="jd-primary-btn" disabled={saving}>
             {saving ? "Adding..." : "Add Machinery Section"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function EditMachinerySectionModal({ initialName, onClose, onSave, tasks }) {
+  const [sectionName, setSectionName] = useState(initialName || "");
+  const [saving, setSaving] = useState(false);
+
+  function submit() {
+    const trimmed = sectionName.trim();
+    if (!trimmed) {
+      alert("Please enter a Machinery Section Name.");
+      return;
+    }
+    if (trimmed.toLowerCase() === (initialName || "").toLowerCase()) {
+      onClose();
+      return;
+    }
+    const exists = tasks.some(
+      (t) => t.projectToken === "inventory" && t.project && t.project.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      alert("This Machinery Section already exists!");
+      return;
+    }
+    setSaving(true);
+    onSave(initialName, trimmed).finally(() => setSaving(false));
+  }
+
+  return (
+    <div className="jd-modal-overlay" onClick={onClose}>
+      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <div className="jd-modal-head">
+          <h3>Edit Machinery Section Name</h3>
+          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <label className="jd-field-label">Machinery Section Name</label>
+        <input
+          className="jd-input"
+          value={sectionName}
+          onChange={(e) => setSectionName(e.target.value)}
+          placeholder="e.g. Milling Section Machine 1"
+          autoFocus
+        />
+
+        <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
+          <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="jd-primary-btn" disabled={saving}>
+            {saving ? "Saving..." : "Save Name"}
           </button>
         </div>
       </form>
