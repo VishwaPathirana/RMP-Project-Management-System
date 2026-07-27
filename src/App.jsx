@@ -2527,19 +2527,6 @@ export default function App() {
                       <tr>
                         <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
                           <div style={{ marginBottom: "10px" }}>No breakdown tasks found.</div>
-                          <button
-                            type="button"
-                            className="jd-primary-btn"
-                            style={{ margin: "8px auto 0", display: "inline-flex" }}
-                            onClick={async () => {
-                              try {
-                                localStorage.removeItem("cached-job-tasks");
-                              } catch (e) {}
-                              await fetchTasks();
-                            }}
-                          >
-                            Force Clear Cache & Refetch Data
-                          </button>
                         </td>
                       </tr>
                     )}
