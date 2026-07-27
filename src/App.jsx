@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
@@ -1080,7 +1080,7 @@ export default function App() {
   const filteredInventoryTasks = useMemo(() => {
     let list = inventoryTasks;
     if (invStatusFilter !== "All") {
-      list = list.filter(t => statusOf(t.progress) === invStatusFilter);
+      list = list.filter(t => taskStatusOf(t) === invStatusFilter);
     }
     if (invCreatorFilter !== "All") {
       list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === invCreatorFilter.toLowerCase());
@@ -2383,7 +2383,7 @@ export default function App() {
                       return acc;
                     }, {})
                   ).map(([assetName, tasks]) => (
-                    <React.Fragment key={assetName}>
+                    <Fragment key={assetName}>
                       <tr style={{ background: "var(--panel-2)", pointerEvents: "none" }}>
                         <td colSpan={8} style={{ padding: "10px 14px", fontWeight: "600", fontSize: "13px" }}>
                           📁 {assetName} <span style={{ fontSize: "11px", color: "var(--text-dim)", marginLeft: "8px", fontWeight: "normal" }}>(Item Count: {tasks.length})</span>
@@ -2425,7 +2425,7 @@ export default function App() {
                           </tr>
                         );
                       })}
-                    </React.Fragment>
+                    </Fragment>
                   ))}
                   {filteredInventoryTasks.length === 0 && (
                     <tr>
