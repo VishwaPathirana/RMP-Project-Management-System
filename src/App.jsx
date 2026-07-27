@@ -2408,19 +2408,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--panel-2)", border: "1px solid var(--border)", borderBottom: "none", padding: "10px 14px", borderTopLeftRadius: "8px", borderTopRightRadius: "8px", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "12px", background: "var(--accent)", color: "#191008", fontWeight: "600", padding: "3px 8px", borderRadius: "5px" }}>Grouped By: Asset Name</span>
-                  <span style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline", fontSize: "11.5px", marginLeft: "4px" }}>Edit Grouping and Formatting</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "12px" }}>
-                  <span style={{ color: "var(--text-dim)" }}>Row Height:</span>
-                  <span style={{ cursor: "pointer", opacity: 0.8, letterSpacing: "1px" }}>☰ ☲ ☵</span>
-                  <span style={{ color: "var(--text-dim)" }}>Total Tasks: <strong>{currentAssetTasks.length}</strong></span>
-                </div>
-              </div>
-
-              <div className="jd-table-container" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+              <div className="jd-table-container">
                 <table className="jd-table jd-table-click jd-table-divided">
                   <thead>
                     <tr>
