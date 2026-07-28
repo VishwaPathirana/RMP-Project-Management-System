@@ -1824,7 +1824,7 @@ export default function App() {
           <ListChecks size={14} /> Projects List
         </button>
         <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => setView("inv-dashboard")}>
-          <LayoutGrid size={14} /> Inventory Dashboard
+          <LayoutGrid size={14} /> Breakdown Dashboard
         </button>
         <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); }}>
           <ListChecks size={14} /> Inventory Tasks
@@ -1856,7 +1856,7 @@ export default function App() {
               <ListChecks size={14} /> Projects List
             </button>
             <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => { setView("inv-dashboard"); setMenuOpen(false); }}>
-              <LayoutGrid size={14} /> Inventory Dashboard
+              <LayoutGrid size={14} /> Breakdown Dashboard
             </button>
             <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); setMenuOpen(false); }}>
               <ListChecks size={14} /> Inventory Tasks
