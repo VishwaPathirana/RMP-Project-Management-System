@@ -555,6 +555,121 @@ function exportToExcel(data, fileName, sheetName = "Report") {
   }
 }
 
+function hexToRgb(hex) {
+  if (!hex || typeof hex !== "string") return { r: 59, g: 130, b: 246 };
+  const clean = hex.replace("#", "");
+  let num = parseInt(clean, 16);
+  if (isNaN(num)) return { r: 59, g: 130, b: 246 };
+  if (clean.length === 3) {
+    const r = ((num >> 8) & 0xf) * 17;
+    const g = ((num >> 4) & 0xf) * 17;
+    const b = (num & 0xf) * 17;
+    return { r, g, b };
+  }
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+
+function darkenHex(hex, percent) {
+  try {
+    const { r, g, b } = hexToRgb(hex);
+    const f = 1 - percent / 100;
+    const nr = Math.max(0, Math.round(r * f));
+    const ng = Math.max(0, Math.round(g * f));
+    const nb = Math.max(0, Math.round(b * f));
+    return `rgb(${nr}, ${ng}, ${nb})`;
+  } catch (e) {
+    return hex;
+  }
+}
+
+function lightenHex(hex, percent) {
+  try {
+    const { r, g, b } = hexToRgb(hex);
+    const f = percent / 100;
+    const nr = Math.min(255, Math.round(r + (255 - r) * f));
+    const ng = Math.min(255, Math.round(g + (255 - g) * f));
+    const nb = Math.min(255, Math.round(b + (255 - b) * f));
+    return `rgb(${nr}, ${ng}, ${nb})`;
+  } catch (e) {
+    return hex;
+  }
+}
+
+function Custom3DBar(props) {
+  const { x, y, width, height, fill, payload, dataKey } = props;
+  if (!width || !height || height <= 0) return null;
+
+  const barWidth = Math.min(width * 0.75, 42);
+  const offsetX = x + (width - barWidth) / 2;
+  const depthX = Math.min(barWidth * 0.25, 8);
+  const depthY = 6;
+  const topY = y;
+  const bottomY = y + height;
+
+  const sideColor = darkenHex(fill, 28);
+  const topColor = lightenHex(fill, 40);
+
+  const val = payload ? payload[dataKey || "avgProgress"] : null;
+  const displayVal = val !== null && val !== undefined ? (typeof val === "number" ? (dataKey === "totalHours" ? `${val}h` : `${val}%`) : String(val)) : "";
+
+  return (
+    <g className="jd-3d-bar-group">
+      {/* Front Face */}
+      <rect
+        x={offsetX}
+        y={topY}
+        width={barWidth}
+        height={height}
+        fill={fill}
+        rx={2}
+        ry={2}
+      />
+      {/* Right 3D Side Depth Face */}
+      <path
+        d={`M ${offsetX + barWidth} ${topY}
+           L ${offsetX + barWidth + depthX} ${topY - depthY}
+           L ${offsetX + barWidth + depthX} ${bottomY - depthY}
+           L ${offsetX + barWidth} ${bottomY} Z`}
+        fill={sideColor}
+        opacity={0.88}
+      />
+      {/* Top 3D Isometric Cap */}
+      <path
+        d={`M ${offsetX} ${topY}
+           L ${offsetX + depthX} ${topY - depthY}
+           L ${offsetX + barWidth + depthX} ${topY - depthY}
+           L ${offsetX + barWidth} ${topY} Z`}
+        fill={topColor}
+        opacity={0.95}
+      />
+      {/* Front Gloss Reflection */}
+      <rect
+        x={offsetX + 2}
+        y={topY + 2}
+        width={Math.max(barWidth * 0.22, 2)}
+        height={Math.max(height - 4, 2)}
+        fill="#ffffff"
+        opacity={0.18}
+        rx={1}
+      />
+      {/* Top Value Label */}
+      {displayVal && (
+        <text
+          x={offsetX + barWidth / 2 + depthX / 2}
+          y={topY - depthY - 7}
+          fill="var(--text)"
+          textAnchor="middle"
+          fontSize="11.5"
+          fontWeight="bold"
+          fontFamily="'Oswald', sans-serif"
+        >
+          {displayVal}
+        </text>
+      )}
+    </g>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -1936,14 +2051,38 @@ export default function App() {
 
             <div className="jd-panel jd-panel-wide">
               <h4>Average progress by task</h4>
-              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+              <div style={{ position: "relative", width: "100%", height: "350px" }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mByTaskName} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke="var(--border)" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "var(--text)", fontSize: 11 }} />
+                  <BarChart data={mByTaskName} margin={{ top: 25, right: 20, left: 0, bottom: 85 }}>
+                    <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="displayName"
+                      interval={0}
+                      tick={({ x, y, payload }) => {
+                        const label = payload.value;
+                        const truncated = label.length > 22 ? label.slice(0, 20) + "…" : label;
+                        return (
+                          <g transform={`translate(${x},${y})`}>
+                            <text
+                              x={0}
+                              y={0}
+                              dy={14}
+                              textAnchor="end"
+                              fill="var(--text)"
+                              fontSize={11}
+                              fontWeight={500}
+                              transform="rotate(-30)"
+                            >
+                              <title>{label}</title>
+                              {truncated}
+                            </text>
+                          </g>
+                        );
+                      }}
+                    />
+                    <YAxis domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} unit="%" />
                     <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="avgProgress" shape={<Custom3DBar dataKey="avgProgress" />}>
                       {mByTaskName.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
@@ -2083,14 +2222,38 @@ export default function App() {
           <div className="jd-charts">
             <div className="jd-panel jd-panel-wide">
               <h4>Average progress by project</h4>
-              <div style={{ position: "relative", width: "100%", height: "210px" }}>
+              <div style={{ position: "relative", width: "100%", height: "350px" }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byProject} layout="vertical" margin={{ left: 8, right: 16 }}>
-                    <CartesianGrid stroke="var(--border)" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} />
-                    <YAxis type="category" dataKey="displayName" width={150} tick={{ fill: "var(--text)", fontSize: 11 }} />
+                  <BarChart data={byProject} margin={{ top: 25, right: 20, left: 0, bottom: 85 }}>
+                    <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="displayName"
+                      interval={0}
+                      tick={({ x, y, payload }) => {
+                        const label = payload.value;
+                        const truncated = label.length > 22 ? label.slice(0, 20) + "…" : label;
+                        return (
+                          <g transform={`translate(${x},${y})`}>
+                            <text
+                              x={0}
+                              y={0}
+                              dy={14}
+                              textAnchor="end"
+                              fill="var(--text)"
+                              fontSize={11}
+                              fontWeight={500}
+                              transform="rotate(-30)"
+                            >
+                              <title>{label}</title>
+                              {truncated}
+                            </text>
+                          </g>
+                        );
+                      }}
+                    />
+                    <YAxis domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} tick={{ fill: "var(--text-dim)", fontSize: 11 }} unit="%" />
                     <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Bar dataKey="avgProgress" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="avgProgress" shape={<Custom3DBar dataKey="avgProgress" />}>
                       {byProject.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
@@ -2771,16 +2934,39 @@ export default function App() {
             </div>
 
             {/* 2. Total Down Time by Section (Bar Chart) */}
-            <div className="jd-panel" style={{ minHeight: "260px" }}>
+            <div className="jd-panel" style={{ minHeight: "350px" }}>
               <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>Total Down Time by Section (Bar Chart)</h4>
-              <div style={{ position: "relative", width: "100%", height: "215px" }}>
+              <div style={{ position: "relative", width: "100%", height: "290px" }}>
                 {invSectionBreakdownTimeData.length === 0 ? (
                   <p className="jd-empty-note" style={{ textAlign: "center", paddingTop: "60px" }}>No breakdown hours logged yet.</p>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={invSectionBreakdownTimeData} margin={{ top: 10, right: 15, left: -10, bottom: 25 }}>
+                    <BarChart data={invSectionBreakdownTimeData} margin={{ top: 25, right: 15, left: -10, bottom: 65 }}>
                       <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="section" tick={{ fill: "var(--text-dim)", fontSize: 10 }} interval={0} angle={-20} textAnchor="end" />
+                      <XAxis
+                        dataKey="section"
+                        interval={0}
+                        tick={({ x, y, payload }) => {
+                          const label = payload.value;
+                          const truncated = label.length > 18 ? label.slice(0, 16) + "…" : label;
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <text
+                                x={0}
+                                y={0}
+                                dy={12}
+                                textAnchor="end"
+                                fill="var(--text-dim)"
+                                fontSize={10}
+                                transform="rotate(-30)"
+                              >
+                                <title>{label}</title>
+                                {truncated}
+                              </text>
+                            </g>
+                          );
+                        }}
+                      />
                       <YAxis type="number" allowDecimals={true} tick={{ fill: "var(--text-dim)", fontSize: 10 }} unit="h" />
                       <Tooltip
                         formatter={(val, name, item) => [`${val} hrs`, item?.payload?.section || name || "Section"]}
@@ -2790,8 +2976,7 @@ export default function App() {
                       />
                       <Bar
                         dataKey="totalHours"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={45}
+                        shape={<Custom3DBar dataKey="totalHours" />}
                         style={{ cursor: "pointer" }}
                         onClick={(data) => {
                           if (!data || !data.section) return;
