@@ -502,6 +502,14 @@ function addDays(dateStr, days) {
   d.setDate(d.getDate() + numDays);
   return d.toISOString().slice(0, 10);
 }
+function calcDaysBetween(sDate, eDate) {
+  if (!sDate || !eDate) return 0;
+  const s = new Date(sDate + "T00:00:00");
+  const e = new Date(eDate + "T00:00:00");
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+  const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff : 0;
+}
 function fmt(dateStr) {
   if (!dateStr) return "—";
   return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
@@ -970,7 +978,8 @@ export default function App() {
 
   async function upsertTask(data, id) {
     const now = new Date().toISOString();
-    const endDate = data.endDateOverride || addDays(data.startDate, data.daysRequired);
+    const calculatedEnd = data.startDate ? addDays(data.startDate, data.daysRequired) : null;
+    const endDate = data.endDateOverride || data.endDate || calculatedEnd || data.startDate || null;
     const nextList = id
       ? tasks.map((t) => (t.id === id ? { ...t, ...data, endDate, updatedAt: now } : t))
       : [
@@ -3921,7 +3930,11 @@ const [noDate, setNoDate] = useState(() => {
 });
 const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
 const [breakdownTime, setBreakdownTime] = useState(initial?.breakdownTime || "09:00");
-const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || initial?.startDate || todayStr());
+const [endDateOverride, setEndDateOverride] = useState(() => {
+  if (initial?.endDate) return initial.endDate;
+  if (initial?.startDate && initial?.daysRequired) return addDays(initial.startDate, initial.daysRequired);
+  return initial?.startDate || todayStr();
+});
 const [breakdownEndTime, setBreakdownEndTime] = useState(initial?.breakdownEndTime || "17:00");
 
 function calcDownHours(sDate, sTime, eDate, eTime) {
@@ -4017,6 +4030,10 @@ function submit() {
     alert("Please select or enter a name.");
     return;
   }
+  const finalEndDate = noDate
+    ? null
+    : (endDateOverride || (startDate && daysRequired ? addDays(startDate, daysRequired) : startDate));
+
   onSave(
     {
       project: finalProject,
@@ -4032,7 +4049,8 @@ function submit() {
       breakdownTime: noDate ? null : breakdownTime,
       breakdownEndTime: noDate ? null : breakdownEndTime,
       daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
-      endDateOverride: noDate ? null : (endDateOverride || startDate),
+      endDateOverride: finalEndDate,
+      endDate: finalEndDate,
       progress: Number(progress),
       photos,
       description,
@@ -4354,17 +4372,55 @@ return (
           <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
             <div>
               <label className="jd-field-label"><Calendar size={12} /> Start date</label>
-              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+              <input
+                type="date"
+                className="jd-input"
+                value={noDate ? "" : startDate}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  setStartDate(newStart);
+                  if (daysRequired && newStart) {
+                    setEndDateOverride(addDays(newStart, daysRequired));
+                  }
+                }}
+                disabled={readOnly || noDate}
+              />
             </div>
             <div>
               <label className="jd-field-label">Days required</label>
-              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+              <input
+                type="number"
+                min="0"
+                className="jd-input"
+                value={noDate ? "" : daysRequired}
+                onChange={(e) => {
+                  const newDays = e.target.value;
+                  setDaysRequired(newDays);
+                  if (startDate && newDays !== "") {
+                    setEndDateOverride(addDays(startDate, newDays));
+                  }
+                }}
+                placeholder="e.g. 6"
+                disabled={readOnly || noDate}
+              />
             </div>
           </div>
 
           <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-            <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
-            <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
+            <label className="jd-field-label">End date</label>
+            <input
+              type="date"
+              className="jd-input"
+              value={noDate ? "" : (endDateOverride || computedEnd)}
+              onChange={(e) => {
+                const newEnd = e.target.value;
+                setEndDateOverride(newEnd);
+                if (startDate && newEnd) {
+                  setDaysRequired(calcDaysBetween(startDate, newEnd));
+                }
+              }}
+              disabled={readOnly || noDate}
+            />
           </div>
         </>
       )}
