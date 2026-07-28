@@ -4572,7 +4572,6 @@ function MachineryDirectoryView({ inventoryItemsList, inventoryTasks, session })
     const sectionMap = {};
 
     const allSectionsSet = new Set([
-      ...DEFAULT_NAMES,
       ...inventoryItemsList,
       ...inventoryTasks.map(t => t.project).filter(Boolean)
     ]);
