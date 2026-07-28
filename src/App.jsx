@@ -670,9 +670,9 @@ export default function App() {
   const [mStatusFilter, setMStatusFilter] = useState("All");
   const [pStatusFilter, setPStatusFilter] = useState("All");
   const [tStatusFilter, setTStatusFilter] = useState("All");
-  const [mCreatorFilter, setMCreatorFilter] = useState("All");
-  const [pCreatorFilter, setPCreatorFilter] = useState("All");
-  const [tCreatorFilter, setTCreatorFilter] = useState("All");
+  const [mAssigneeFilter, setMAssigneeFilter] = useState("All");
+  const [pAssigneeFilter, setPAssigneeFilter] = useState("All");
+  const [tAssigneeFilter, setTAssigneeFilter] = useState("All");
   const [mFromDate, setMFromDate] = useState("");
   const [mToDate, setMToDate] = useState("");
   const [pFromDate, setPFromDate] = useState("");
@@ -682,7 +682,7 @@ export default function App() {
   const [invSearch, setInvSearch] = useState("");
   const [invStatusFilter, setInvStatusFilter] = useState("All");
   const [invChartStatusFilter, setInvChartStatusFilter] = useState("All");
-  const [invCreatorFilter, setInvCreatorFilter] = useState("All");
+  const [invAssigneeFilter, setInvAssigneeFilter] = useState("All");
   const [invFromDate, setInvFromDate] = useState("");
   const [invToDate, setInvToDate] = useState("");
   const [err, setErr] = useState("");
@@ -1219,6 +1219,34 @@ export default function App() {
     return list;
   }, [tasks]);
 
+  const allAssigneeNames = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    tasks.forEach((t) => {
+      if (t.assigneeName) {
+        const parts = t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean);
+        parts.forEach((val) => {
+          const lower = val.toLowerCase();
+          if (!seen.has(lower)) {
+            seen.add(lower);
+            list.push(val);
+          }
+        });
+      }
+    });
+    users.forEach((u) => {
+      if (u.username) {
+        const val = u.username.trim();
+        const lower = val.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          list.push(val);
+        }
+      }
+    });
+    return list.sort();
+  }, [tasks, users]);
+
   const mTotals = useMemo(() => {
     const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
     let daysScope = 0;
@@ -1551,7 +1579,6 @@ export default function App() {
       .filter((item) => item.totalHours > 0)
       .sort((a, b) => b.totalHours - a.totalHours);
   }, [inventoryTasks]);
-
   const filteredInventoryTasks = useMemo(() => {
     let list = inventoryTasks;
     if (selectedInventorySection) {
@@ -1560,8 +1587,8 @@ export default function App() {
     if (invStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress, "inventory") === invStatusFilter);
     }
-    if (invCreatorFilter !== "All") {
-      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === invCreatorFilter.toLowerCase());
+    if (invAssigneeFilter !== "All") {
+      list = list.filter(t => t.assigneeName && t.assigneeName.toLowerCase().split(",").map(s => s.trim()).includes(invAssigneeFilter.toLowerCase()));
     }
     if (invFromDate) {
       list = list.filter(t => (t.endDate || t.startDate) >= invFromDate);
@@ -1574,23 +1601,22 @@ export default function App() {
       list = list.filter(
         (t) =>
           (t.task || "").toLowerCase().includes(query) ||
-          (t.machineryPart || t.machinery_part || "").toLowerCase().includes(query) ||
           (t.project || "").toLowerCase().includes(query) ||
-          (t.location || "").toLowerCase().includes(query) ||
+          (t.machineryPart || t.machinery_part || "").toLowerCase().includes(query) ||
           (t.assigneeName || "").toLowerCase().includes(query) ||
           (t.description || "").toLowerCase().includes(query)
       );
     }
     return list;
-  }, [inventoryTasks, selectedInventorySection, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
+  }, [inventoryTasks, selectedInventorySection, invStatusFilter, invAssigneeFilter, invFromDate, invToDate, invSearch]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
     if (mStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress) === mStatusFilter);
     }
-    if (mCreatorFilter !== "All") {
-      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === mCreatorFilter.toLowerCase());
+    if (mAssigneeFilter !== "All") {
+      list = list.filter(t => t.assigneeName && t.assigneeName.toLowerCase().split(",").map(s => s.trim()).includes(mAssigneeFilter.toLowerCase()));
     }
     if (mFromDate) {
       list = list.filter(t => (t.endDate || t.startDate) >= mFromDate);
@@ -1608,7 +1634,7 @@ export default function App() {
       );
     }
     return list;
-  }, [maintenanceTasks, mSearch, mStatusFilter, mCreatorFilter, mFromDate, mToDate]);
+  }, [maintenanceTasks, mSearch, mStatusFilter, mAssigneeFilter, mFromDate, mToDate]);
 
   const filteredProjectsList = useMemo(() => {
     let list = projectsList;
@@ -1620,15 +1646,15 @@ export default function App() {
         return status === pStatusFilter;
       });
     }
-    if (pCreatorFilter !== "All") {
+    if (pAssigneeFilter !== "All") {
       list = list.filter(p => {
-        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
-        return tasksInP.some(t => t.createdBy && t.createdBy.toLowerCase() === pCreatorFilter.toLowerCase());
+        const tasksInP = projectTasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        return tasksInP.some(t => t.assigneeName && t.assigneeName.toLowerCase().split(",").map(s => s.trim()).includes(pAssigneeFilter.toLowerCase()));
       });
     }
     if (pFromDate) {
       list = list.filter(p => {
-        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        const tasksInP = projectTasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
         const maxEnd = tasksInP.reduce((max, t) => {
           const end = t.endDate || t.startDate;
           return !max || end > max ? end : max;
@@ -1638,7 +1664,7 @@ export default function App() {
     }
     if (pToDate) {
       list = list.filter(p => {
-        const tasksInP = tasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
+        const tasksInP = projectTasks.filter(t => t.project && t.project.toLowerCase() === p.toLowerCase());
         const minStart = tasksInP.reduce((min, t) => {
           const start = t.startDate;
           return !min || start < min ? start : min;
@@ -1651,15 +1677,15 @@ export default function App() {
       list = list.filter(p => p.toLowerCase().includes(q));
     }
     return list;
-  }, [projectsList, pSearch, pStatusFilter, pCreatorFilter, projectTasks, tasks, pFromDate, pToDate]);
+  }, [projectsList, pSearch, pStatusFilter, pAssigneeFilter, projectTasks, tasks, pFromDate, pToDate]);
 
   const filteredProjectTasks = useMemo(() => {
     let list = projectTasks.filter(t => t.project && selectedProject && t.project.toLowerCase() === selectedProject.toLowerCase());
     if (tStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress) === tStatusFilter);
     }
-    if (tCreatorFilter !== "All") {
-      list = list.filter(t => t.createdBy && t.createdBy.toLowerCase() === tCreatorFilter.toLowerCase());
+    if (tAssigneeFilter !== "All") {
+      list = list.filter(t => t.assigneeName && t.assigneeName.toLowerCase().split(",").map(s => s.trim()).includes(tAssigneeFilter.toLowerCase()));
     }
     if (tFromDate) {
       list = list.filter(t => (t.endDate || t.startDate) >= tFromDate);
@@ -1677,7 +1703,7 @@ export default function App() {
       );
     }
     return list;
-  }, [projectTasks, selectedProject, tSearch, tStatusFilter, tCreatorFilter, tFromDate, tToDate]);
+  }, [projectTasks, selectedProject, tSearch, tStatusFilter, tAssigneeFilter, tFromDate, tToDate]);
 
   function handleExportMaintenanceTasks() {
     const data = filteredMaintenanceTasks.map((t) => ({
@@ -2254,12 +2280,12 @@ export default function App() {
                 </select>
                 <select
                   className="jd-input"
-                  value={mCreatorFilter}
-                  onChange={(e) => setMCreatorFilter(e.target.value)}
+                  value={mAssigneeFilter}
+                  onChange={(e) => setMAssigneeFilter(e.target.value)}
                   style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
                 >
-                  <option value="All">All Creators</option>
-                  {creatorNames.map((name) => (
+                  <option value="All">All Assignees</option>
+                  {allAssigneeNames.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
                 </select>
@@ -2430,12 +2456,12 @@ export default function App() {
                     </select>
                     <select
                       className="jd-input"
-                      value={pCreatorFilter}
-                      onChange={(e) => setPCreatorFilter(e.target.value)}
+                      value={pAssigneeFilter}
+                      onChange={(e) => setPAssigneeFilter(e.target.value)}
                       style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
                     >
-                      <option value="All">All Creators</option>
-                      {creatorNames.map((name) => (
+                      <option value="All">All Assignees</option>
+                      {allAssigneeNames.map((name) => (
                         <option key={name} value={name}>{name}</option>
                       ))}
                     </select>
@@ -2616,12 +2642,12 @@ export default function App() {
                     </select>
                     <select
                       className="jd-input"
-                      value={tCreatorFilter}
-                      onChange={(e) => setTCreatorFilter(e.target.value)}
+                      value={tAssigneeFilter}
+                      onChange={(e) => setTAssigneeFilter(e.target.value)}
                       style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
                     >
-                      <option value="All">All Creators</option>
-                      {creatorNames.map((name) => (
+                      <option value="All">All Assignees</option>
+                      {allAssigneeNames.map((name) => (
                         <option key={name} value={name}>{name}</option>
                       ))}
                     </select>
@@ -3124,6 +3150,17 @@ export default function App() {
                     <option value="Escalated to Maintenance Supervisor">Escalated to Maintenance Supervisor</option>
                     <option value="Maintenance in Progress">Maintenance in Progress</option>
                     <option value="Ready to Begin Production">Ready to Begin Production</option>
+                  </select>
+                  <select
+                    className="jd-input"
+                    value={invAssigneeFilter}
+                    onChange={(e) => setInvAssigneeFilter(e.target.value)}
+                    style={{ flex: 1, minWidth: "120px", fontSize: "13px", padding: "6px 10px" }}
+                  >
+                    <option value="All">All Assignees</option>
+                    {allAssigneeNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
                   </select>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                     <button
