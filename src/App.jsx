@@ -51,6 +51,7 @@ const DEFAULT_NAMES = [
   "NEW OIL MILL",
   "YARD A B C",
   "WET A B C",
+  "WET SECTION A",
   "Washrooms",
   "Living Quarters",
   "Creamed Coconut Plant",
@@ -69,6 +70,23 @@ const DEFAULT_PROJECT_NAMES = [
 ];
 
 const DEFAULT_INVENTORY_ITEMS = [
+  "Drilling Machine C21",
+  "Grinder A97",
+  "Hobbing Machine J2",
+  "Lathe A1",
+  "Milling Machine B9",
+  "Planer N2"
+];
+
+const DEFAULT_WET_SECTION_A_MACHINERY = [
+  "Unloading lorry conveyor",
+  "main coveyor",
+  "small conveyor",
+  "pre cutter",
+  "table",
+  "washing conveyor",
+  "coconut water tank",
+  "coconut water pump",
   "Drilling Machine C21",
   "Grinder A97",
   "Hobbing Machine J2",
@@ -292,6 +310,7 @@ export default function App() {
         }
         return {
           ...t,
+          machineryPart: t.machineryPart || t.machinery_part || "",
           location,
           assigneeName,
           photos,
@@ -411,6 +430,8 @@ export default function App() {
         const subTasksPayload = subTasks && subTasks.length ? JSON.stringify(subTasks) : "";
         return {
           ...row,
+          machineryPart: row.machineryPart || "",
+          machinery_part: row.machineryPart || "",
           endDate: row.endDate && row.endDate.trim() ? row.endDate.trim() : null,
           assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload}`
         };
@@ -1061,6 +1082,7 @@ export default function App() {
       list = list.filter(
         (t) =>
           (t.task || "").toLowerCase().includes(query) ||
+          (t.machineryPart || t.machinery_part || "").toLowerCase().includes(query) ||
           (t.project || "").toLowerCase().includes(query) ||
           (t.location || "").toLowerCase().includes(query) ||
           (t.assigneeName || "").toLowerCase().includes(query) ||
@@ -2497,8 +2519,9 @@ export default function App() {
                 <table className="jd-table jd-table-click jd-table-divided">
                   <thead>
                     <tr>
-                      <th style={{ width: "22%" }}>Machinery</th>
-                      <th style={{ width: "15%" }}>Fault Type</th>
+                      <th style={{ width: "20%" }}>Machinery</th>
+                      <th style={{ width: "15%" }}>Machinery Part</th>
+                      <th style={{ width: "12%" }}>Fault Type</th>
                       <th>Assignee</th>
                       <th>Date and Time of Breakdown</th>
                       <th>Fault Reason</th>
@@ -2511,7 +2534,7 @@ export default function App() {
                       <Fragment key={assetName}>
                         {/* Folder Row for Asset */}
                         <tr style={{ background: "rgba(255,255,255,0.03)", fontWeight: "600", cursor: "default" }}>
-                          <td colSpan={7} style={{ padding: "10px 14px" }}>
+                          <td colSpan={8} style={{ padding: "10px 14px" }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <span style={{ fontSize: "10px", color: "var(--text-dim)" }}>▼</span>
@@ -2586,6 +2609,12 @@ export default function App() {
                               </td>
 
                               <td>
+                                <span style={{ fontSize: "13px", color: (t.machineryPart || t.machinery_part) ? "var(--text)" : "var(--text-dim)" }}>
+                                  {t.machineryPart || t.machinery_part || "—"}
+                                </span>
+                              </td>
+
+                              <td>
                                 <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                                   {(t.electricalFault || (t.faultType || "").toLowerCase().includes("electrical")) && (
                                     <span style={{ fontSize: "10.5px", fontWeight: "600", color: "#3b82f6", background: "rgba(59, 130, 246, 0.12)", padding: "2px 6px", borderRadius: "4px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
@@ -2635,7 +2664,7 @@ export default function App() {
                     ))}
                     {Object.keys(grouped).length === 0 && (
                       <tr>
-                        <td colSpan={7} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
+                        <td colSpan={8} className="jd-empty-note" style={{ textAlign: "center", padding: "24px" }}>
                           <div style={{ marginBottom: "10px" }}>No breakdown tasks found.</div>
                         </td>
                       </tr>
@@ -3203,7 +3232,24 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     return list.includes(val) ? "" : val;
   });
 
-  const [task, setTask] = useState(initial?.task || "");
+  const [task, setTask] = useState(() => {
+    if (initial?.task) return initial.task;
+    if (type === "inventory") return DEFAULT_WET_SECTION_A_MACHINERY[0];
+    return "";
+  });
+  const [selectedMachineryOption, setSelectedMachineryOption] = useState(() => {
+    const val = initial?.task || (type === "inventory" ? DEFAULT_WET_SECTION_A_MACHINERY[0] : "");
+    if (type !== "inventory") return "";
+    if (DEFAULT_WET_SECTION_A_MACHINERY.includes(val)) return val;
+    return "__custom__";
+  });
+  const [customMachineryInput, setCustomMachineryInput] = useState(() => {
+    const val = initial?.task || "";
+    if (type !== "inventory") return "";
+    return DEFAULT_WET_SECTION_A_MACHINERY.includes(val) ? "" : val;
+  });
+
+  const [machineryPart, setMachineryPart] = useState(initial?.machineryPart || initial?.machinery_part || "");
   const [location, setLocation] = useState(() => {
     if (initial) return initial.location || "";
     if (type === "inventory") return "C: Little to No Financial Impact";
@@ -3300,8 +3346,11 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
 
   function submit() {
     if (readOnly) return;
-    if (!task.trim()) {
-      alert(type === "inventory" ? "Please enter a Machinery name." : "Please enter a Task No.");
+    const finalTask = (type === "inventory")
+      ? (selectedMachineryOption === "__custom__" ? customMachineryInput.trim() : selectedMachineryOption)
+      : task.trim();
+    if (!finalTask) {
+      alert(type === "inventory" ? "Please select or enter a Machinery name." : "Please enter a Task No.");
       return;
     }
     const finalProject = (type === "inventory" && (defaultProject || initial?.project))
@@ -3317,7 +3366,8 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
       {
         project: finalProject,
         projectToken: type,
-        task: task.trim(),
+        task: finalTask,
+        machineryPart: machineryPart.trim(),
         location: location.trim(),
         electricalFault,
         mechanicalFault,
@@ -3383,7 +3433,62 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
         )}
 
         <label className="jd-field-label">{type === "inventory" ? "Machinery" : "Task Name"}</label>
-        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder={type === "inventory" ? "e.g. Grinder A97" : "e.g. T-1001"} disabled={readOnly} />
+        {type === "inventory" ? (
+          readOnly ? (
+            <input className="jd-input" value={task} disabled={true} />
+          ) : (
+            <>
+              <select
+                className="jd-input"
+                value={selectedMachineryOption}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedMachineryOption(val);
+                  if (val !== "__custom__") {
+                    setTask(val);
+                  } else {
+                    setTask(customMachineryInput);
+                  }
+                }}
+              >
+                <optgroup label="Default Machinery (Wet Section A & Others)">
+                  {DEFAULT_WET_SECTION_A_MACHINERY.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </optgroup>
+                <option value="__custom__">+ Add Custom Machinery...</option>
+              </select>
+              {selectedMachineryOption === "__custom__" && (
+                <input
+                  type="text"
+                  className="jd-input"
+                  value={customMachineryInput}
+                  onChange={(e) => {
+                    setCustomMachineryInput(e.target.value);
+                    setTask(e.target.value);
+                  }}
+                  placeholder="Enter custom machinery name (e.g. Conveyor Belt B2)..."
+                  style={{ marginTop: "8px" }}
+                />
+              )}
+            </>
+          )
+        ) : (
+          <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
+        )}
+
+        {type === "inventory" && (
+          <>
+            <label className="jd-field-label">Machinery Part</label>
+            <input
+              className="jd-input"
+              value={machineryPart}
+              onChange={(e) => setMachineryPart(e.target.value)}
+              placeholder="e.g. Gearbox, Motor, Shaft..."
+              disabled={readOnly}
+            />
+          </>
+        )}
 
         {type === "inventory" && (
           <>
