@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { supabase } from "./supabaseClient";
 import logo from "./logo.jpg";
 import loginBanner from "./login-banner.png";
+import * as XLSX from "xlsx";
 import {
-  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, Edit2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon, FolderOpen, FileText
+  LayoutGrid, ListChecks, Plus, LogOut, User, X, Trash2, Edit2, AlertTriangle, Calendar, Users, UserPlus, Menu, Camera, Upload, Image as ImageIcon, Sun, Moon, FolderOpen, FileText, Download
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -44,14 +45,42 @@ const ASSIGNEE_CHART_COLORS = [
 ];
 
 const DEFAULT_NAMES = [
-  "WASTE WATER/CANTEEN/OTHERS",
+  "PUMP HOUSE AND OFFICE",
+  "PUMP HOUSE & OFFICE",
+  "MILK PLANT",
   "MILK SECTION",
+  "WASTE WATER PLANT",
+  "AIR CONDENSED COCONUT MILK UNIT",
+  "AIR COOLING CONDENSED UNIT MILK",
   "DC/LOW FAT SECTION",
+  "LOW FAT SECTION",
+  "LOW FAT",
+  "DRY SECTION",
+  "DC SECTION",
   "YARA",
   "NEW OIL MILL",
   "YARD A B C",
+  "YARD SECTION A",
+  "YARD A",
+  "YRAD SECTION A",
+  "YRAD A",
+  "YARD SECTION B",
+  "YARD B",
+  "YRAD SECTION B",
+  "YRAD B",
+  "YARD SECTION C",
+  "YARD C",
+  "YRAD SECTION C",
+  "YRAD C",
   "WET A B C",
   "WET SECTION A",
+  "WET A",
+  "WET SECTION B",
+  "WET B",
+  "WET SECTION C",
+  "WET C",
+  "COCONUT SHELL BOILER",
+  "FIRE WOOD BOILER",
   "Washrooms",
   "Living Quarters",
   "Creamed Coconut Plant",
@@ -69,9 +98,23 @@ const DEFAULT_PROJECT_NAMES = [
   "factory Sustainability and energy"
 ];
 
-const DEFAULT_INVENTORY_ITEMS = [];
+const DEFAULT_INVENTORY_ITEMS = [
+  "Drilling Machine C21",
+  "Grinder A97",
+  "Hobbing Machine J2",
+  "Lathe A1",
+  "Milling Machine B9",
+  "Planer N2"
+];
 
-const DEFAULT_WET_SECTION_A_MACHINERY = [
+const WASTE_WATER_PLANT_MACHINERY = [
+  "pump 1",
+  "pump 2",
+  "pump 3",
+  "pump4"
+];
+
+const WET_SECTION_A_MACHINERY = [
   "Unloading lorry conveyor",
   "main coveyor",
   "small conveyor",
@@ -81,6 +124,341 @@ const DEFAULT_WET_SECTION_A_MACHINERY = [
   "coconut water tank",
   "coconut water pump"
 ];
+
+const WET_SECTION_B_MACHINERY = [
+  "pre cutter",
+  "b wet lorry loading conveyor"
+];
+
+const WET_SECTION_C_MACHINERY = [
+  "section c to b wet conveyor",
+  "peeling off machine"
+];
+
+const YARD_SECTION_A_MACHINERY = [
+  "A yard main iloading coveyor",
+  "yard left side conveyor belt",
+  "yard right side conveyor belt",
+  "hi pressure pump",
+  "shell unloading conveyor",
+  "deshelling machine 23"
+];
+
+const YARD_SECTION_B_MACHINERY = [
+  "B yard coconut water tank",
+  "cococnut wet tank agitator",
+  "coconut conveyor loading belt",
+  "coconut conveyor belt side",
+  "hi pressure pump",
+  "coconut shell removing machine",
+  "coconut water pump"
+];
+
+const YARD_SECTION_C_MACHINERY = [
+  "coconut water condensing unit 1",
+  "coconut water condensing unit 2",
+  "tank agitator",
+  "cococnut water pumo",
+  "coconut shell removing machine"
+];
+
+const NEW_OIL_MILL_MACHINERY = [
+  "oil mill cutter",
+  "cutter feeding conveyor",
+  "dryer fan motor",
+  "1 conveyer",
+  "dryer motor",
+  "2 conveyor",
+  "3 conveyor",
+  "1 kumar oil mill machine",
+  "2 kumar oil mill machine",
+  "nugaduwa oil expeller machine",
+  "oil pump",
+  "nugaduwa machines oil pump",
+  "vibration moter",
+  "oil tank agitator",
+  "oil filter pump",
+  "oil tank pump",
+  "oil stock tank feed pump",
+  "product out pump",
+  "fire pump"
+];
+
+const COCONUT_SHELL_BOILER_MACHINERY = [
+  "ID fan",
+  "fd fan",
+  "water feed pump",
+  "screw pump",
+  "screw conveyor",
+  "shell cutter",
+  "chemical pump",
+  "cooling tower water feed pump 1",
+  "cooling tower heat exhaust fan"
+];
+
+const FIRE_WOOD_BOILER_MACHINERY = [
+  "Id fan",
+  "FD fan",
+  "water storke tank water pump",
+  "feed water pump 1",
+  "feed waterpump 2",
+  "electric axe"
+];
+
+const PUMP_HOUSE_AND_OFFICE_MACHINERY = [
+  "office",
+  "main guard room",
+  "1 main gate motor",
+  "2 elder home",
+  "3street light",
+  "pump room",
+  "main pump",
+  "tube well",
+  "other",
+  "water pumps",
+  "1 water pump",
+  "2 filter system pump",
+  "3 filter system blower",
+  "waste water pump"
+];
+
+const LOW_FAT_MACHINERY = [
+  "low fat dryer main fan",
+  "conveyor 1",
+  "dryer motor 1",
+  "dryer motor 2",
+  "dryer motor 3",
+  "dryer motor 4",
+  "dryer motor 5",
+  "conveyor 2",
+  "inspection table",
+  "conveyor 3",
+  "air compressor"
+];
+
+const DRY_SECTION_MACHINERY = [
+  "dc conveyor 1",
+  "dc conveyor 2",
+  "dc cutter conveyor 3",
+  "dc cutter",
+  "conveyor 4",
+  "dryer motor 1",
+  "dryer motor 2",
+  "dryer motor 3",
+  "dryer motor 4",
+  "conveyor 5",
+  "inspection table",
+  "conveyor 6",
+  "Dc shifter",
+  "vibrator bag 1",
+  "bag vibrator 2",
+  "dc exhaust fan 1",
+  "dc exhaust fan 2",
+  "dc exhaust fan 3",
+  "dc exhaust fan 4",
+  "dc dryer main fan motor",
+  "dc exhaust fan 5"
+];
+
+const AIR_COOLING_MILK_MACHINERY = [
+  "ice bank no 1",
+  "chill water pump",
+  "ice bank no 2",
+  "ice bank no 3",
+  "farm tank no 1",
+  "farm tank no 2",
+  "farm tank no5",
+  "farm tank no6",
+  "farm tank no 7",
+  "ice bank 1 water pump",
+  "ice bank 2 water pump",
+  "1 tank agitator",
+  "2 tank agitator",
+  "3 tank agitator 1",
+  "3 tank agitator 2",
+  "4 tank agitator",
+  "5 tank agitator",
+  "6 tank agitator",
+  "7 tank agitator",
+  "ice bank 3 chiller",
+  "milk hi pressure pump",
+  "hydrulic pump",
+  "hot water tank pump",
+  "caustic tank pump",
+  "caustic tank agitator",
+  "cip pump",
+  "product out pump",
+  "water stock tank pump",
+  "Tank number 7 water pump"
+];
+
+const MILK_PLANT_MACHINERY = [
+  "A wet to milk plant conveyor",
+  "milk main cutter",
+  "steam blancher",
+  "press 1 main motor",
+  "press 1 corn motor",
+  "steam blanch to press 2 conveyor",
+  "press 2 and press 1 coconut powder side conv;",
+  "bottom up conveyor",
+  "exhaust fan 1",
+  "exhaust fan 2",
+  "small milk pump",
+  "milk pump",
+  "press 2 main motor",
+  "press 2 conveyor",
+  "corn motor press 2",
+  "press 3 cutter feed conveyor'",
+  "press 3 cutter motor",
+  "press 3 steam blancher",
+  "press 3 main motor",
+  "corn motor press3",
+  "press 1 to 2 to press3 long conveyor",
+  "press3 to dc conveyor",
+  "press 3 exhaust fan 1",
+  "press3 exhaust fan 2"
+];
+
+const YARA_MACHINERY = [
+  "yara conveyor",
+  "yara cutter",
+  "inspection table",
+  "yara AC 3 phase",
+  "yara freezer tank"
+];
+
+function getSectionDefaultMachinery(sectionName, type) {
+  if (type !== "inventory" || !sectionName) return null;
+  const s = sectionName.toLowerCase().trim();
+  if (s.includes("waste water") || s.includes("wastewater")) {
+    return WASTE_WATER_PLANT_MACHINERY;
+  }
+  const isWetA =
+    (s.includes("wet section a") || s.includes("swet section a") || s.includes("wet a")) &&
+    !s.includes("wet a b c") &&
+    !s.includes("wet b") &&
+    !s.includes("wet c");
+
+  if (isWetA) {
+    return WET_SECTION_A_MACHINERY;
+  }
+
+  const isWetB =
+    (s.includes("wet section b") || s.includes("swet section b") || s.includes("wet b")) &&
+    !s.includes("wet a b c") &&
+    !s.includes("wet a") &&
+    !s.includes("wet c");
+
+  if (isWetB) {
+    return WET_SECTION_B_MACHINERY;
+  }
+
+  const isWetC =
+    (s.includes("wet section c") || s.includes("swet section c") || s.includes("wet c")) &&
+    !s.includes("wet a b c") &&
+    !s.includes("wet a") &&
+    !s.includes("wet b");
+
+  if (isWetC) {
+    return WET_SECTION_C_MACHINERY;
+  }
+  const isYardA =
+    (s.includes("yard a") || s.includes("yrad a") || s.includes("yard section a") || s.includes("yrad section a") || s.includes("a yard")) &&
+    !s.includes("yard a b c") &&
+    !s.includes("yrad a b c") &&
+    !s.includes("yard b") &&
+    !s.includes("yrad b") &&
+    !s.includes("yard c") &&
+    !s.includes("yrad c");
+
+  if (isYardA) {
+    return YARD_SECTION_A_MACHINERY;
+  }
+
+  const isYardB =
+    (s.includes("yard b") || s.includes("yrad b") || s.includes("yard section b") || s.includes("yrad section b") || s.includes("b yard")) &&
+    !s.includes("yard a b c") &&
+    !s.includes("yrad a b c") &&
+    !s.includes("yard a") &&
+    !s.includes("yrad a") &&
+    !s.includes("yard c") &&
+    !s.includes("yrad c");
+
+  if (isYardB) {
+    return YARD_SECTION_B_MACHINERY;
+  }
+
+  const isYardC =
+    (s.includes("yard c") || s.includes("yrad c") || s.includes("yard section c") || s.includes("yrad section c") || s.includes("c yard")) &&
+    !s.includes("yard a b c") &&
+    !s.includes("yrad a b c") &&
+    !s.includes("yard a") &&
+    !s.includes("yrad a") &&
+    !s.includes("yard b") &&
+    !s.includes("yrad b");
+
+  if (isYardC) {
+    return YARD_SECTION_C_MACHINERY;
+  }
+
+  const isYara = s.includes("yara") && !s.includes("yard") && !s.includes("yrad");
+  if (isYara) {
+    return YARA_MACHINERY;
+  }
+  if (s.includes("new oil mill") || s.includes("oil mill")) {
+    return NEW_OIL_MILL_MACHINERY;
+  }
+  const isCoconutShellBoiler =
+    s.includes("coconut shell boiler") ||
+    s.includes("shell boiler") ||
+    (s.includes("coconut") && s.includes("boiler"));
+
+  if (isCoconutShellBoiler) {
+    return COCONUT_SHELL_BOILER_MACHINERY;
+  }
+
+  if (s.includes("fire wood boiler") || s.includes("wood boiler") || s.includes("firewood boiler") || s.includes("boiler")) {
+    return FIRE_WOOD_BOILER_MACHINERY;
+  }
+
+  const isPumpHouseAndOffice =
+    s.includes("pump house") ||
+    (s.includes("pump") && s.includes("office")) ||
+    s.includes("office") ||
+    s.includes("guard room");
+
+  if (isPumpHouseAndOffice) {
+    return PUMP_HOUSE_AND_OFFICE_MACHINERY;
+  }
+  if (s.includes("low fat")) {
+    return LOW_FAT_MACHINERY;
+  }
+  if (s.includes("dry section") || s.includes("dc section") || s.includes("dry") || (s.includes("dc") && !s.includes("dc/low fat"))) {
+    return DRY_SECTION_MACHINERY;
+  }
+  const isMilkPlant =
+    (s.includes("milk plant") || s.includes("milk section") || s === "milk") &&
+    !s.includes("air cooling") &&
+    !s.includes("air condensed") &&
+    !s.includes("condensed unit") &&
+    !s.includes("coconut milk unit");
+
+  if (isMilkPlant) {
+    return MILK_PLANT_MACHINERY;
+  }
+
+  if (
+    s.includes("air cooling") ||
+    s.includes("air condensed") ||
+    s.includes("air concerned") ||
+    s.includes("aie cooline") ||
+    s.includes("condensed unit milk") ||
+    s.includes("coconut milk unit")
+  ) {
+    return AIR_COOLING_MILK_MACHINERY;
+  }
+  return null;
+}
 
 const DEFAULT_ASSIGNEES = [
   "LIYANAGE",
@@ -132,6 +510,44 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function exportToExcel(data, fileName, sheetName = "Report") {
+  if (!data || !data.length) {
+    alert("No data available to export.");
+    return;
+  }
+  try {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    const colWidths = Object.keys(data[0] || {}).map((key) => {
+      const maxLen = Math.max(
+        key.length,
+        ...data.map((row) => String(row[key] !== undefined && row[key] !== null ? row[key] : "").length)
+      );
+      return { wch: Math.min(Math.max(maxLen + 3, 12), 60) };
+    });
+    ws["!cols"] = colWidths;
+
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fileName}_${todayStr()}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    console.error("Excel export failed:", e);
+    alert("Could not export Excel file: " + (e.message || JSON.stringify(e)));
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -164,6 +580,7 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState("");
+  const [selectedInventorySection, setSelectedInventorySection] = useState("");
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("app-theme") || "dark";
   });
@@ -190,23 +607,24 @@ export default function App() {
       if (path.includes("/project/")) {
         const parts = path.split("/project/");
         const viewName = parts[0];
-        const rawProjectName = parts[1];
-        const projectName = decodeURIComponent(rawProjectName);
+        const rawName = parts[1];
+        const decodedName = decodeURIComponent(rawName || "");
         setView(viewName);
-        setSelectedProject(projectName);
+        if (viewName === "inventory" || viewName === "inv-dashboard") {
+          setSelectedInventorySection(decodedName);
+        } else {
+          setSelectedProject(decodedName);
+        }
       } else {
         setView(path);
-        setSelectedProject("");
       }
     } else {
       setView("m-dashboard");
-      setSelectedProject("");
     }
   }
 
   // Effect to listen for browser back/forward buttons (hashchange event)
   useEffect(() => {
-    // Initial sync
     syncStateFromHash();
 
     const handleHashChange = () => {
@@ -221,7 +639,11 @@ export default function App() {
   // Effect to update browser hash when React state changes (creating history entries)
   useEffect(() => {
     let expectedHash = "";
-    if (selectedProject) {
+    if (view === "inventory" || view === "inv-dashboard") {
+      expectedHash = selectedInventorySection
+        ? `#/view/${view}/project/${encodeURIComponent(selectedInventorySection)}`
+        : `#/view/${view}`;
+    } else if (selectedProject) {
       expectedHash = `#/view/${view}/project/${encodeURIComponent(selectedProject)}`;
     } else {
       expectedHash = `#/view/${view}`;
@@ -229,7 +651,7 @@ export default function App() {
     if (window.location.hash !== expectedHash) {
       window.location.hash = expectedHash;
     }
-  }, [view, selectedProject]);
+  }, [view, selectedProject, selectedInventorySection]);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showInvForm, setShowInvForm] = useState(false);
   const [editingInvItem, setEditingInvItem] = useState(null);
@@ -272,6 +694,13 @@ export default function App() {
         let photos = [];
         let description = "";
         let subTasks = [];
+        let breakdownTime = "";
+        let breakdownEndTime = "";
+        let machineryPart = t.machineryPart || t.machinery_part || "";
+        let faultType = t.faultType || t.fault_type || "";
+        let electricalFault = false;
+        let mechanicalFault = false;
+
         if (t.assignee && t.assignee.includes(" ||| ")) {
           const parts = t.assignee.split(" ||| ");
           location = parts[0] || "";
@@ -291,13 +720,41 @@ export default function App() {
               subTasks = [];
             }
           }
+          if (parts[5]) {
+            try {
+              const times = JSON.parse(parts[5]);
+              breakdownTime = times.bTime || "";
+              breakdownEndTime = times.eTime || "";
+            } catch (e) { }
+          }
+          if (parts[6]) {
+            try {
+              const extra = JSON.parse(parts[6]);
+              if (extra.machineryPart) machineryPart = extra.machineryPart;
+              if (extra.faultType) faultType = extra.faultType;
+              if (extra.electricalFault !== undefined) electricalFault = extra.electricalFault;
+              if (extra.mechanicalFault !== undefined) mechanicalFault = extra.mechanicalFault;
+            } catch (e) { }
+          }
         } else {
           location = t.assignee || "";
           assigneeName = "";
         }
+
+        if (!electricalFault && !mechanicalFault && faultType) {
+          const fLower = faultType.toLowerCase();
+          electricalFault = fLower.includes("electrical");
+          mechanicalFault = fLower.includes("mechanical");
+        }
+
         return {
           ...t,
-          machineryPart: t.machineryPart || t.machinery_part || "",
+          machineryPart,
+          faultType,
+          electricalFault,
+          mechanicalFault,
+          breakdownTime: t.breakdownTime || breakdownTime,
+          breakdownEndTime: t.breakdownEndTime || breakdownEndTime,
           location,
           assigneeName,
           photos,
@@ -410,18 +867,37 @@ export default function App() {
       const nextIds = new Set(next.map((t) => t.id));
       const toDelete = tasks.filter((t) => !nextIds.has(t.id));
 
-      // Combine location, assigneeName, photos, and description into assignee column, strip photos, description and client-only fields from dbRows
-      const dbRows = next.map(({ endDateOverride, location, assigneeName, photos, description, subTasks, ...row }) => {
-        const photoPayload = photos && photos.length ? JSON.stringify(photos) : "";
-        const descPayload = description ? description.trim() : "";
-        const subTasksPayload = subTasks && subTasks.length ? JSON.stringify(subTasks) : "";
-        return {
-          ...row,
-          machineryPart: row.machineryPart || "",
-          machinery_part: row.machineryPart || "",
-          endDate: row.endDate && row.endDate.trim() ? row.endDate.trim() : null,
-          assignee: `${location || ""} ||| ${assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload}`
+      // Combine all client-only breakdown/extended fields into assignee column and strictly output only valid SQL table columns in dbRows
+      const dbRows = next.map((t) => {
+        const photoPayload = t.photos && t.photos.length ? JSON.stringify(t.photos) : "";
+        const descPayload = t.description ? t.description.trim() : "";
+        const subTasksPayload = t.subTasks && t.subTasks.length ? JSON.stringify(t.subTasks) : "";
+        const timesPayload = (t.breakdownTime || t.breakdownEndTime) ? JSON.stringify({ bTime: t.breakdownTime || "", eTime: t.breakdownEndTime || "" }) : "";
+        const breakdownExtraPayload = JSON.stringify({
+          machineryPart: t.machineryPart || "",
+          faultType: t.faultType || "",
+          electricalFault: !!t.electricalFault,
+          mechanicalFault: !!t.mechanicalFault
+        });
+
+        const assigneeString = `${t.location || ""} ||| ${t.assigneeName || ""} ||| ${photoPayload} ||| ${descPayload} ||| ${subTasksPayload} ||| ${timesPayload} ||| ${breakdownExtraPayload}`;
+
+        const row = {
+          id: t.id,
+          project: t.project || "",
+          projectToken: t.projectToken || "maintenance",
+          task: t.task || "",
+          assignee: assigneeString,
+          startDate: t.startDate || null,
+          endDate: t.endDate && t.endDate.trim() ? t.endDate.trim() : null,
+          daysRequired: Number(t.daysRequired) || 0,
+          progress: Number(t.progress) || 0,
         };
+
+        if (t.createdBy) row.createdBy = t.createdBy;
+        if (t.createdAt) row.createdAt = t.createdAt;
+
+        return row;
       });
 
       if (toDelete.length) {
@@ -608,8 +1084,8 @@ export default function App() {
     });
 
     await saveTasks(nextList);
-    if (selectedProject && selectedProject.toLowerCase() === oldName.toLowerCase()) {
-      setSelectedProject(trimmedNew);
+    if (selectedInventorySection && selectedInventorySection.toLowerCase() === oldName.toLowerCase()) {
+      setSelectedInventorySection(trimmedNew);
     }
   }
 
@@ -1047,10 +1523,30 @@ export default function App() {
     })).filter(item => item.value > 0);
   }, [inventoryTasks]);
 
+  const invSectionBreakdownTimeData = useMemo(() => {
+    const map = {};
+    inventoryTasks.forEach((t) => {
+      if (t.task === "__init__") return;
+      const section = t.project || "Unspecified Section";
+      const hours = Number(t.daysRequired) || 0;
+      map[section] = (map[section] || 0) + hours;
+    });
+
+    return Object.entries(map)
+      .map(([section, totalHours]) => ({
+        section,
+        totalHours: Number(totalHours.toFixed(2)),
+        name: section,
+        value: Number(totalHours.toFixed(2))
+      }))
+      .filter((item) => item.totalHours > 0)
+      .sort((a, b) => b.totalHours - a.totalHours);
+  }, [inventoryTasks]);
+
   const filteredInventoryTasks = useMemo(() => {
     let list = inventoryTasks;
-    if (selectedProject) {
-      list = list.filter(t => t.project && t.project.toLowerCase() === selectedProject.toLowerCase());
+    if (selectedInventorySection) {
+      list = list.filter(t => t.project && t.project.toLowerCase() === selectedInventorySection.toLowerCase());
     }
     if (invStatusFilter !== "All") {
       list = list.filter(t => statusOf(t.progress, "inventory") === invStatusFilter);
@@ -1077,7 +1573,7 @@ export default function App() {
       );
     }
     return list;
-  }, [inventoryTasks, selectedProject, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
+  }, [inventoryTasks, selectedInventorySection, invStatusFilter, invCreatorFilter, invFromDate, invToDate, invSearch]);
 
   const filteredMaintenanceTasks = useMemo(() => {
     let list = maintenanceTasks;
@@ -1174,6 +1670,71 @@ export default function App() {
     return list;
   }, [projectTasks, selectedProject, tSearch, tStatusFilter, tCreatorFilter, tFromDate, tToDate]);
 
+  function handleExportMaintenanceTasks() {
+    const data = filteredMaintenanceTasks.map((t) => ({
+      "Task ID": t.id,
+      "Machinery / Location": t.project || "—",
+      "Task Title": t.task || "—",
+      "Assignee": t.assigneeName || t.location || "—",
+      "Start Date": t.startDate || "—",
+      "Target End Date": t.endDate || "—",
+      "Days Scope": t.daysRequired || 0,
+      "Progress (%)": `${t.progress}%`,
+      "Status": statusOf(t.progress),
+      "Description": t.description || "—",
+      "Created By": t.createdBy || "—"
+    }));
+    exportToExcel(data, "Maintenance_Tasks_Report", "Maintenance Tasks");
+  }
+
+  function handleExportProjectTasks() {
+    const listToExport = selectedProject ? filteredProjectTasks : projectTasks;
+    const data = listToExport.map((t) => ({
+      "Project Name": t.project || "—",
+      "Task Title": t.task || "—",
+      "Assignee": t.assigneeName || t.location || "—",
+      "Start Date": t.startDate || "—",
+      "Target End Date": t.endDate || "—",
+      "Days Scope": t.daysRequired || 0,
+      "Progress (%)": `${t.progress}%`,
+      "Status": statusOf(t.progress),
+      "Description": t.description || "—",
+      "Created By": t.createdBy || "—"
+    }));
+    const pTitle = selectedProject ? `Project_${selectedProject.replace(/[^a-zA-Z0-9]/g, "_")}` : "Projects_List_Report";
+    exportToExcel(data, pTitle, "Projects");
+  }
+
+  function handleExportInventoryTasks() {
+    const listToExport = selectedInventorySection ? filteredInventoryTasks : inventoryTasks;
+    const data = listToExport.map((t) => {
+      const faultTypes = [];
+      if (t.electricalFault) faultTypes.push("Electrical");
+      if (t.mechanicalFault) faultTypes.push("Mechanical");
+      const faultStr = faultTypes.join(" & ") || t.faultType || "—";
+
+      return {
+        "Task ID": t.id,
+        "Machinery Section": t.project || "—",
+        "Machinery Name": t.task || "—",
+        "Machinery Part": t.machineryPart || "—",
+        "Fault Type": faultStr,
+        "Assignee": t.assigneeName || "—",
+        "Breakdown Start Date": t.startDate || "—",
+        "Breakdown Time": t.breakdownTime || "—",
+        "Breakdown End Date": t.endDate || "—",
+        "Breakdown End Time": t.breakdownEndTime || "—",
+        "Total Down Hours": Number(t.daysRequired) || 0,
+        "Impact Level": t.location || "—",
+        "Status": statusOf(t.progress, "inventory"),
+        "Description": t.description || "—",
+        "Created By": t.createdBy || "—"
+      };
+    });
+    const secTitle = selectedInventorySection ? `Breakdown_${selectedInventorySection.replace(/[^a-zA-Z0-9]/g, "_")}` : "Inventory_Breakdown_Tasks_Report";
+    exportToExcel(data, secTitle, "Breakdown Tasks");
+  }
+
   if (loadingSession) {
     return (
       <div className="jd-app jd-loading">
@@ -1226,7 +1787,14 @@ export default function App() {
         </div>
       </header>
 
-      {err && <div className="jd-error-bar">{err}</div>}
+      {err && (
+        <div className="jd-error-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{err}</span>
+          <button type="button" onClick={() => setErr("")} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: "0 4px", display: "flex", alignItems: "center" }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <nav className="jd-tabs">
         <button className={view === "m-dashboard" ? "active" : ""} onClick={() => setView("m-dashboard")}>
@@ -1238,14 +1806,17 @@ export default function App() {
         <button className={view === "p-dashboard" ? "active" : ""} onClick={() => setView("p-dashboard")}>
           <LayoutGrid size={14} /> Projects Dashboard
         </button>
-        <button className={view === "projects" ? "active" : ""} onClick={() => setView("projects")}>
+        <button className={view === "projects" ? "active" : ""} onClick={() => { setView("projects"); setSelectedProject(""); }}>
           <ListChecks size={14} /> Projects List
         </button>
         <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => setView("inv-dashboard")}>
           <LayoutGrid size={14} /> Inventory Dashboard
         </button>
-        <button className={view === "inventory" ? "active" : ""} onClick={() => setView("inventory")}>
+        <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); }}>
           <ListChecks size={14} /> Inventory Tasks
+        </button>
+        <button className={view === "machinery-directory" ? "active" : ""} onClick={() => setView("machinery-directory")}>
+          <FolderOpen size={14} /> Machinery &amp; Parts
         </button>
         {session.role === "management" && (
           <button className={view === "users" ? "active" : ""} onClick={() => setView("users")}>
@@ -1267,14 +1838,17 @@ export default function App() {
             <button className={view === "p-dashboard" ? "active" : ""} onClick={() => { setView("p-dashboard"); setMenuOpen(false); }}>
               <LayoutGrid size={14} /> Projects Dashboard
             </button>
-            <button className={view === "projects" ? "active" : ""} onClick={() => { setView("projects"); setMenuOpen(false); }}>
+            <button className={view === "projects" ? "active" : ""} onClick={() => { setView("projects"); setSelectedProject(""); setMenuOpen(false); }}>
               <ListChecks size={14} /> Projects List
             </button>
             <button className={view === "inv-dashboard" ? "active" : ""} onClick={() => { setView("inv-dashboard"); setMenuOpen(false); }}>
               <LayoutGrid size={14} /> Inventory Dashboard
             </button>
-            <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setMenuOpen(false); }}>
+            <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); setMenuOpen(false); }}>
               <ListChecks size={14} /> Inventory Tasks
+            </button>
+            <button className={view === "machinery-directory" ? "active" : ""} onClick={() => { setView("machinery-directory"); setMenuOpen(false); }}>
+              <FolderOpen size={14} /> Machinery &amp; Parts
             </button>
             {session.role === "management" && (
               <button className={view === "users" ? "active" : ""} onClick={() => { setView("users"); setMenuOpen(false); }}>
@@ -1676,11 +2250,21 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              {session.role === "management" && (
-                <button className="jd-primary-btn" onClick={() => { setFormType("maintenance"); setEditTask(null); setShowForm(true); }}>
-                  <Plus size={14} /> Add Maintenance Task
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="jd-secondary-btn"
+                  onClick={handleExportMaintenanceTasks}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "6px 12px", cursor: "pointer" }}
+                >
+                  <Download size={14} /> Export Excel
                 </button>
-              )}
+                {session.role === "management" && (
+                  <button className="jd-primary-btn" onClick={() => { setFormType("maintenance"); setEditTask(null); setShowForm(true); }}>
+                    <Plus size={14} /> Add Maintenance Task
+                  </button>
+                )}
+              </div>
             </div>
 
             {filteredMaintenanceTasks.length === 0 ? (
@@ -1842,11 +2426,21 @@ export default function App() {
                       ))}
                     </select>
                   </div>
-                  {session.role === "management" && (
-                    <button className="jd-primary-btn" onClick={() => setShowProjectForm(true)}>
-                      <Plus size={14} /> Create Project
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="jd-secondary-btn"
+                      onClick={handleExportProjectTasks}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "6px 12px", cursor: "pointer" }}
+                    >
+                      <Download size={14} /> Export Excel
                     </button>
-                  )}
+                    {session.role === "management" && (
+                      <button className="jd-primary-btn" onClick={() => setShowProjectForm(true)}>
+                        <Plus size={14} /> Create Project
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {filteredProjectsList.length === 0 ? (
@@ -2018,11 +2612,21 @@ export default function App() {
                       ))}
                     </select>
                   </div>
-                  {session.role === "management" && (
-                    <button className="jd-primary-btn" onClick={() => { setFormType("project"); setEditTask(null); setShowForm(true); }}>
-                      <Plus size={14} /> Add Project Task
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="jd-secondary-btn"
+                      onClick={handleExportProjectTasks}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "6px 12px", cursor: "pointer" }}
+                    >
+                      <Download size={14} /> Export Excel
                     </button>
-                  )}
+                    {session.role === "management" && (
+                      <button className="jd-primary-btn" onClick={() => { setFormType("project"); setEditTask(null); setShowForm(true); }}>
+                        <Plus size={14} /> Add Project Task
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {filteredProjectTasks.length === 0 ? (
@@ -2109,92 +2713,102 @@ export default function App() {
 
       {view === "inv-dashboard" && (
         <main className="jd-main">
-          {/* Top Panel matching the layout of the image */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: "16px", marginBottom: "20px" }} className="jd-inventory-header-grid">
-            
-            {/* Active Tasks Panel */}
+          {/* Single Row 3-Column Header Grid across */}
+          <div style={{ display: "grid", gridTemplateColumns: "0.7fr 2.15fr 2.15fr", gap: "16px", marginBottom: "20px" }} className="jd-inventory-header-grid">
+
+            {/* 1. Active Tasks Card */}
             <div
               className="jd-panel"
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "250px", textAlign: "center", cursor: "pointer" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "260px", padding: "16px 12px", textAlign: "center", cursor: "pointer" }}
               onClick={() => {
                 setInvStatusFilter("All");
-                setSelectedProject("");
+                setSelectedInventorySection("");
                 setView("inventory");
               }}
               title="Click to view all Inventory Tasks"
             >
-              <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Tasks</h4>
-              <div style={{ fontSize: "96px", fontWeight: "700", color: "#7EA754", lineHeight: "1", fontFamily: "'Oswald', sans-serif" }}>
+              <h4 style={{ margin: "0 0 16px 0", fontSize: "13px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Active Tasks</h4>
+              <div style={{ fontSize: "72px", fontWeight: "700", color: "#7EA754", lineHeight: "1", fontFamily: "'Oswald', sans-serif" }}>
                 {invTotals.totalTasks}
               </div>
             </div>
 
-            {/* By Stage Bar Chart */}
-            <div className="jd-panel" style={{ minHeight: "250px" }}>
-              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>By Stage</h4>
-              <div style={{ position: "relative", width: "100%", height: "200px" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={invByStageData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
-                    <XAxis dataKey="stageName" tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
-                    <YAxis type="number" allowDecimals={false} tick={{ fill: "var(--text-dim)", fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                    <Bar
-                      dataKey="Count"
-                      fill="#7EA754"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={40}
-                      style={{ cursor: "pointer" }}
-                      onClick={(data) => {
-                        if (!data || !data.stageName) return;
-                        const stageMap = {
-                          "01-Breakdown": "Awaiting Operator Analysis",
-                          "02-Escalation": "Escalated to Maintenance Supervisor",
-                          "03-Repair": "Maintenance in Progress",
-                          "04-Production": "Ready to Begin Production"
-                        };
-                        const status = stageMap[data.stageName];
-                        if (status) {
-                          setInvStatusFilter(status);
-                          setSelectedProject("");
+            {/* 2. Total Down Time by Section (Bar Chart) */}
+            <div className="jd-panel" style={{ minHeight: "260px" }}>
+              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>Total Down Time by Section (Bar Chart)</h4>
+              <div style={{ position: "relative", width: "100%", height: "215px" }}>
+                {invSectionBreakdownTimeData.length === 0 ? (
+                  <p className="jd-empty-note" style={{ textAlign: "center", paddingTop: "60px" }}>No breakdown hours logged yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={invSectionBreakdownTimeData} margin={{ top: 10, right: 15, left: -10, bottom: 25 }}>
+                      <CartesianGrid stroke="var(--border)" vertical={false} strokeDasharray="3 3" />
+                      <XAxis dataKey="section" tick={{ fill: "var(--text-dim)", fontSize: 10 }} interval={0} angle={-20} textAnchor="end" />
+                      <YAxis type="number" allowDecimals={true} tick={{ fill: "var(--text-dim)", fontSize: 10 }} unit="h" />
+                      <Tooltip
+                        formatter={(val, name, item) => [`${val} hrs`, item?.payload?.section || name || "Section"]}
+                        contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: "12.5px" }}
+                        itemStyle={{ color: "var(--text)", fontWeight: "600" }}
+                        labelStyle={{ color: "var(--accent)", fontWeight: "700" }}
+                      />
+                      <Bar
+                        dataKey="totalHours"
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={45}
+                        style={{ cursor: "pointer" }}
+                        onClick={(data) => {
+                          if (!data || !data.section) return;
+                          setSelectedInventorySection(data.section);
                           setView("inventory");
-                        }
-                      }}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                        }}
+                      >
+                        {invSectionBreakdownTimeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
-            {/* By Status Donut Chart */}
-            <div className="jd-panel" style={{ minHeight: "250px" }}>
-              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>By Status</h4>
-              <div style={{ position: "relative", width: "100%", height: "200px" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={invByStatusData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={50}
-                      outerRadius={75}
-                      paddingAngle={3}
-                      stroke="none"
-                      style={{ cursor: "pointer" }}
-                      onClick={(entry) => {
-                        if (!entry || !entry.name) return;
-                        setInvStatusFilter(entry.name);
-                        setSelectedProject("");
-                        setView("inventory");
-                      }}
-                    >
-                      {invByStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={STATUS_COLOR[entry.name]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }} itemStyle={{ color: "var(--text)" }} labelStyle={{ color: "var(--text)" }} />
-                  </PieChart>
-                </ResponsiveContainer>
+            {/* 3. Down Time Proportion by Section (Pie Chart) */}
+            <div className="jd-panel" style={{ minHeight: "260px" }}>
+              <h4 style={{ margin: "0 0 12px 0", textAlign: "center" }}>Down Time Proportion by Section (Pie Chart)</h4>
+              <div style={{ position: "relative", width: "100%", height: "215px" }}>
+                {invSectionBreakdownTimeData.length === 0 ? (
+                  <p className="jd-empty-note" style={{ textAlign: "center", paddingTop: "60px" }}>No breakdown hours logged yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={invSectionBreakdownTimeData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={48}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        stroke="none"
+                        style={{ cursor: "pointer" }}
+                        onClick={(entry) => {
+                          if (!entry || !entry.name) return;
+                          setSelectedInventorySection(entry.name);
+                          setView("inventory");
+                        }}
+                      >
+                        {invSectionBreakdownTimeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(val, name) => [`${val} hrs`, name || "Section"]}
+                        contentStyle={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: "12.5px" }}
+                        itemStyle={{ color: "var(--text)", fontWeight: "600" }}
+                        labelStyle={{ color: "var(--accent)", fontWeight: "700" }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -2217,7 +2831,7 @@ export default function App() {
                 </thead>
                 <tbody>
                   {invOverdue.map((t) => (
-                    <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => { setSelectedProject(t.project || ""); handleEditTaskSelect(t); setView("inventory"); }}>
+                    <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => { setSelectedInventorySection(t.project || ""); handleEditTaskSelect(t); setView("inventory"); }}>
                       <td><strong>{t.task}</strong></td>
                       <td>{t.project || "—"}</td>
                       <td>{t.assigneeName || "—"}</td>
@@ -2237,7 +2851,7 @@ export default function App() {
       )}
 
       {view === "inventory" && (() => {
-        if (!selectedProject) {
+        if (!selectedInventorySection) {
           // 1. LIST OF MACHINERY SECTIONS VIEW
           return (
             <main className="jd-main">
@@ -2245,7 +2859,7 @@ export default function App() {
                 <StatCard label="Total Machinery Sections" value={inventoryItemsList.length} />
                 <StatCard
                   label="Total Down Hours"
-                  value={inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24}
+                  value={Math.round(inventoryTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 100) / 100}
                 />
                 <StatCard
                   label="Awaiting Analysis"
@@ -2282,14 +2896,24 @@ export default function App() {
                       style={{ flex: 2, minWidth: "160px", fontSize: "13px", padding: "6px 10px" }}
                     />
                   </div>
-                  {session.role === "management" && (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                     <button
-                      className="jd-primary-btn"
-                      onClick={() => setShowInvForm(true)}
+                      type="button"
+                      className="jd-secondary-btn"
+                      onClick={handleExportInventoryTasks}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "6px 12px", cursor: "pointer" }}
                     >
-                      <Plus size={14} /> Add Machinery Section
+                      <Download size={14} /> Export Excel
                     </button>
-                  )}
+                    {session.role === "management" && (
+                      <button
+                        className="jd-primary-btn"
+                        onClick={() => setShowInvForm(true)}
+                      >
+                        <Plus size={14} /> Add Machinery Section
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {filteredInventoryItemsList.length === 0 ? (
@@ -2311,14 +2935,14 @@ export default function App() {
                     <tbody>
                       {filteredInventoryItemsList.map((item) => {
                         const tasksInItem = inventoryTasks.filter(t => t.project === item && t.task !== "__init__");
-                        const downHours = tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
+                        const downHours = Math.round(tasksInItem.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 100) / 100;
                         const awaiting = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
                         const escalated = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor").length;
                         const inProgress = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
                         const ready = tasksInItem.filter(t => statusOf(t.progress, "inventory") === "Ready to Begin Production").length;
 
                         return (
-                          <tr key={item} onClick={() => setSelectedProject(item)}>
+                          <tr key={item} onClick={() => setSelectedInventorySection(item)}>
                             <td>
                               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <FolderOpen size={16} style={{ color: "var(--accent)" }} />
@@ -2355,27 +2979,27 @@ export default function App() {
                                 </span>
                               ) : "—"}
                             </td>
-                             {session.role === "management" && (
-                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                                  <button
-                                    type="button"
-                                    title="Edit machinery section name"
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center", marginRight: "6px" }}
-                                    onClick={() => setEditingInvItem(item)}
-                                  >
-                                    <Edit2 size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete all tasks for this machinery section"
-                                    style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
-                                    onClick={() => handleDeleteInventoryItem(item)}
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
-                             )}
-                           </tr>
+                            {session.role === "management" && (
+                              <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                                <button
+                                  type="button"
+                                  title="Edit machinery section name"
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center", marginRight: "6px" }}
+                                  onClick={() => setEditingInvItem(item)}
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Delete all tasks for this machinery section"
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "4px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}
+                                  onClick={() => handleDeleteInventoryItem(item)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -2395,7 +3019,7 @@ export default function App() {
         });
 
         const currentAssetTasks = filteredInventoryTasks.filter(t => t.task !== "__init__");
-        const downHoursSum = currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 24;
+        const downHoursSum = Math.round(currentAssetTasks.reduce((acc, t) => acc + (Number(t.daysRequired) || 0), 0) * 100) / 100;
         const awaitingCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Awaiting Operator Analysis").length;
         const escalatedCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Escalated to Maintenance Supervisor").length;
         const inProgressCount = currentAssetTasks.filter(t => statusOf(t.progress, "inventory") === "Maintenance in Progress").length;
@@ -2407,7 +3031,7 @@ export default function App() {
               type="button"
               className="jd-chip-btn"
               style={{ width: "auto", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}
-              onClick={() => setSelectedProject("")}
+              onClick={() => setSelectedInventorySection("")}
             >
               ← Back to Machinery Section
             </button>
@@ -2487,18 +3111,28 @@ export default function App() {
                     <option value="Maintenance in Progress">Maintenance in Progress</option>
                     <option value="Ready to Begin Production">Ready to Begin Production</option>
                   </select>
-                  {session.role === "management" && (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                     <button
-                      className="jd-primary-btn"
-                      onClick={() => {
-                        setFormType("inventory");
-                        setEditTask(null);
-                        setShowForm(true);
-                      }}
+                      type="button"
+                      className="jd-secondary-btn"
+                      onClick={handleExportInventoryTasks}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", padding: "6px 12px", cursor: "pointer" }}
                     >
-                      <Plus size={14} /> Report Breakdown
+                      <Download size={14} /> Export Excel
                     </button>
-                  )}
+                    {session.role === "management" && (
+                      <button
+                        className="jd-primary-btn"
+                        onClick={() => {
+                          setFormType("inventory");
+                          setEditTask(null);
+                          setShowForm(true);
+                        }}
+                      >
+                        <Plus size={14} /> Report Breakdown
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2664,6 +3298,14 @@ export default function App() {
         );
       })()}
 
+      {view === "machinery-directory" && (
+        <MachineryDirectoryView
+          inventoryItemsList={inventoryItemsList}
+          inventoryTasks={inventoryTasks}
+          session={session}
+        />
+      )}
+
       {view === "users" && session.role === "management" && (
         <UserManagementPanel users={users} session={session} onSaveUsers={saveUsers} />
       )}
@@ -2672,7 +3314,7 @@ export default function App() {
         <TaskFormModal
           initial={editTask}
           defaultType={formType}
-          defaultProject={selectedProject}
+          defaultProject={selectedInventorySection}
           assigneeNames={assigneeNames}
           userNames={users.map((u) => u.username)}
           inventoryItems={inventoryItemsList}
@@ -3219,601 +3861,611 @@ function TaskFormModal({ initial, defaultType, defaultProject, assigneeNames, us
     return list.includes(val) ? "" : val;
   });
 
-  const [task, setTask] = useState(() => {
-    if (initial?.task) return initial.task;
-    if (type === "inventory") return DEFAULT_WET_SECTION_A_MACHINERY[0];
-    return "";
-  });
+  const [task, setTask] = useState(initial?.task || "");
+  const [machineryPart, setMachineryPart] = useState(initial?.machineryPart || initial?.machinery_part || "");
+
+  const currentSection = (type === "inventory" && (defaultProject || initial?.project))
+    ? (initial?.project || defaultProject)
+    : (isDropdownProject
+      ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
+      : (initial?.project || defaultProject || ""));
+
+  const sectionMachineryList = getSectionDefaultMachinery(currentSection, type);
+  const isSectionMachineryDropdown = type === "inventory" && sectionMachineryList !== null;
+
   const [selectedMachineryOption, setSelectedMachineryOption] = useState(() => {
-    const val = initial?.task || (type === "inventory" ? DEFAULT_WET_SECTION_A_MACHINERY[0] : "");
-    if (type !== "inventory") return "";
-    if (DEFAULT_WET_SECTION_A_MACHINERY.includes(val)) return val;
-    return "__custom__";
+    const val = initial?.task || "";
+    if (sectionMachineryList && sectionMachineryList.includes(val)) return val;
+    if (val) return "__custom__";
+    return sectionMachineryList ? sectionMachineryList[0] : "";
   });
   const [customMachineryInput, setCustomMachineryInput] = useState(() => {
     const val = initial?.task || "";
-    if (type !== "inventory") return "";
-    return DEFAULT_WET_SECTION_A_MACHINERY.includes(val) ? "" : val;
+    return (sectionMachineryList && sectionMachineryList.includes(val)) ? "" : val;
   });
 
-  const [machineryPart, setMachineryPart] = useState(initial?.machineryPart || initial?.machinery_part || "");
-  const [location, setLocation] = useState(() => {
-    if (initial) return initial.location || "";
-    if (type === "inventory") return "C: Little to No Financial Impact";
-    return "";
-  });
-  const [selectedAssignees, setSelectedAssignees] = useState(() => {
-    if (!initial?.assigneeName) return [];
-    return initial.assigneeName.split(",").map(s => s.trim()).filter(Boolean);
-  });
-  const [noDate, setNoDate] = useState(() => {
-    if (initial) {
-      return !initial.startDate;
+  useEffect(() => {
+    if (type === "inventory" && sectionMachineryList && sectionMachineryList.length > 0) {
+      if (!selectedMachineryOption || (!sectionMachineryList.includes(selectedMachineryOption) && selectedMachineryOption !== "__custom__")) {
+        const val = initial?.task || "";
+        if (sectionMachineryList.includes(val)) {
+          setSelectedMachineryOption(val);
+        } else if (val) {
+          setSelectedMachineryOption("__custom__");
+          setCustomMachineryInput(val);
+        } else {
+          setSelectedMachineryOption(sectionMachineryList[0]);
+        }
+      }
     }
-    return false;
-  });
-  const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
-  const [breakdownTime, setBreakdownTime] = useState(initial?.breakdownTime || "09:00");
-  const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || initial?.startDate || todayStr());
-  const [breakdownEndTime, setBreakdownEndTime] = useState(initial?.breakdownEndTime || "17:00");
-
-  function calcDownHours(sDate, sTime, eDate, eTime) {
-    if (!sDate) return "";
-    const startStr = `${sDate}T${sTime || "00:00"}:00`;
-    const endStr = `${eDate || sDate}T${eTime || sTime || "00:00"}:00`;
-    const startDt = new Date(startStr);
-    const endDt = new Date(endStr);
-    if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return "";
-    const diffMs = endDt.getTime() - startDt.getTime();
-    if (diffMs < 0) return 0;
-    const hours = diffMs / (1000 * 60 * 60);
-    return Math.round(hours * 100) / 100;
+  }, [currentSection, type]);
+const [location, setLocation] = useState(() => {
+  if (initial) return initial.location || "";
+  if (type === "inventory") return "C: Little to No Financial Impact";
+  return "";
+});
+const [selectedAssignees, setSelectedAssignees] = useState(() => {
+  if (!initial?.assigneeName) return [];
+  return initial.assigneeName.split(",").map(s => s.trim()).filter(Boolean);
+});
+const [noDate, setNoDate] = useState(() => {
+  if (initial) {
+    return !initial.startDate;
   }
+  return false;
+});
+const [startDate, setStartDate] = useState(initial?.startDate || todayStr());
+const [breakdownTime, setBreakdownTime] = useState(initial?.breakdownTime || "09:00");
+const [endDateOverride, setEndDateOverride] = useState(initial?.endDate || initial?.startDate || todayStr());
+const [breakdownEndTime, setBreakdownEndTime] = useState(initial?.breakdownEndTime || "17:00");
 
-  const [daysRequired, setDaysRequired] = useState(() => {
-    if (initial?.daysRequired) return initial.daysRequired;
-    const calc = calcDownHours(initial?.startDate || todayStr(), initial?.breakdownTime || "09:00", initial?.endDate || todayStr(), initial?.breakdownEndTime || "17:00");
-    return calc || "";
-  });
-  const [progress, setProgress] = useState(initial?.progress ?? 0);
-  const [photos, setPhotos] = useState(initial?.photos || []);
-  const [uploading, setUploading] = useState(false);
-  const [description, setDescription] = useState(initial?.description || "");
-  const [electricalFault, setElectricalFault] = useState(() => {
-    if (!initial) return false;
-    if (typeof initial.electricalFault === "boolean") return initial.electricalFault;
-    return (initial.faultType || "").toLowerCase().includes("electrical");
-  });
-  const [mechanicalFault, setMechanicalFault] = useState(() => {
-    if (!initial) return false;
-    if (typeof initial.mechanicalFault === "boolean") return initial.mechanicalFault;
-    return (initial.faultType || "").toLowerCase().includes("mechanical");
-  });
-  const [subTasks, setSubTasks] = useState(initial?.subTasks || []);
-  const [subTaskInput, setSubTaskInput] = useState("");
+function calcDownHours(sDate, sTime, eDate, eTime) {
+  if (!sDate) return "";
+  const startStr = `${sDate}T${sTime || "00:00"}:00`;
+  const endStr = `${eDate || sDate}T${eTime || sTime || "00:00"}:00`;
+  const startDt = new Date(startStr);
+  const endDt = new Date(endStr);
+  if (isNaN(startDt.getTime()) || isNaN(endDt.getTime())) return "";
+  const diffMs = endDt.getTime() - startDt.getTime();
+  if (diffMs < 0) return 0;
+  const hours = diffMs / (1000 * 60 * 60);
+  return Math.round(hours * 100) / 100;
+}
 
-  const handleToggleSubTask = (idx) => {
-    if (readOnly) return;
-    const nextSubTasks = subTasks.map((st, i) => i === idx ? { ...st, completed: !st.completed } : st);
-    setSubTasks(nextSubTasks);
-    const completedCount = nextSubTasks.filter(st => st.completed).length;
-    const totalCount = nextSubTasks.length;
-    if (totalCount > 0) {
-      setProgress(Math.round((completedCount / totalCount) * 100));
-    }
-  };
+const [daysRequired, setDaysRequired] = useState(() => {
+  if (initial?.daysRequired) return initial.daysRequired;
+  const calc = calcDownHours(initial?.startDate || todayStr(), initial?.breakdownTime || "09:00", initial?.endDate || todayStr(), initial?.breakdownEndTime || "17:00");
+  return calc || "";
+});
+const [progress, setProgress] = useState(initial?.progress ?? 0);
+const [photos, setPhotos] = useState(initial?.photos || []);
+const [uploading, setUploading] = useState(false);
+const [description, setDescription] = useState(initial?.description || "");
+const [electricalFault, setElectricalFault] = useState(() => {
+  if (!initial) return false;
+  if (typeof initial.electricalFault === "boolean") return initial.electricalFault;
+  return (initial.faultType || "").toLowerCase().includes("electrical");
+});
+const [mechanicalFault, setMechanicalFault] = useState(() => {
+  if (!initial) return false;
+  if (typeof initial.mechanicalFault === "boolean") return initial.mechanicalFault;
+  return (initial.faultType || "").toLowerCase().includes("mechanical");
+});
+const [subTasks, setSubTasks] = useState(initial?.subTasks || []);
+const [subTaskInput, setSubTaskInput] = useState("");
 
-  const handleAddSubTask = (e) => {
-    if (e) e.preventDefault();
-    if (readOnly) return;
-    const trimmed = subTaskInput.trim();
-    if (!trimmed) return;
-    const nextSubTasks = [...subTasks, { text: trimmed, completed: false }];
-    setSubTasks(nextSubTasks);
-    setSubTaskInput("");
-    const completedCount = nextSubTasks.filter(st => st.completed).length;
-    const totalCount = nextSubTasks.length;
+const handleToggleSubTask = (idx) => {
+  if (readOnly) return;
+  const nextSubTasks = subTasks.map((st, i) => i === idx ? { ...st, completed: !st.completed } : st);
+  setSubTasks(nextSubTasks);
+  const completedCount = nextSubTasks.filter(st => st.completed).length;
+  const totalCount = nextSubTasks.length;
+  if (totalCount > 0) {
     setProgress(Math.round((completedCount / totalCount) * 100));
-  };
-
-  const handleDeleteSubTask = (idx) => {
-    if (readOnly) return;
-    const nextSubTasks = subTasks.filter((_, i) => i !== idx);
-    setSubTasks(nextSubTasks);
-    const completedCount = nextSubTasks.filter(st => st.completed).length;
-    const totalCount = nextSubTasks.length;
-    if (totalCount > 0) {
-      setProgress(Math.round((completedCount / totalCount) * 100));
-    } else {
-      setProgress(0);
-    }
-  };
-
-  const computedEnd = endDateOverride || addDays(startDate, daysRequired);
-
-  function submit() {
-    if (readOnly) return;
-    const finalTask = (type === "inventory")
-      ? (selectedMachineryOption === "__custom__" ? customMachineryInput.trim() : selectedMachineryOption)
-      : task.trim();
-    if (!finalTask) {
-      alert(type === "inventory" ? "Please select or enter a Machinery name." : "Please enter a Task No.");
-      return;
-    }
-    const finalProject = (type === "inventory" && (defaultProject || initial?.project))
-      ? (initial?.project || defaultProject)
-      : (isDropdownProject
-          ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
-          : (initial?.project || defaultProject || ""));
-    if (!finalProject) {
-      alert("Please select or enter a name.");
-      return;
-    }
-    onSave(
-      {
-        project: finalProject,
-        projectToken: type,
-        task: finalTask,
-        machineryPart: machineryPart.trim(),
-        location: location.trim(),
-        electricalFault,
-        mechanicalFault,
-        faultType: [electricalFault && "Electrical fault", mechanicalFault && "Mechanical fault"].filter(Boolean).join(", "),
-        assigneeName: selectedAssignees.join(", "),
-        startDate: noDate ? null : startDate,
-        breakdownTime: noDate ? null : breakdownTime,
-        breakdownEndTime: noDate ? null : breakdownEndTime,
-        daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
-        endDateOverride: noDate ? null : (endDateOverride || startDate),
-        progress: Number(progress),
-        photos,
-        description,
-        subTasks
-      },
-      initial?.id
-    );
   }
+};
 
-  return (
-    <div className="jd-modal-overlay" onClick={onClose}>
-      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
-        <div className="jd-modal-head">
-          <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? (defaultProject ? `Report Breakdown under ${defaultProject}` : "Add Inventory Task") : `Add Task under ${defaultProject}`)}</h3>
-          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
-        </div>
+const handleAddSubTask = (e) => {
+  if (e) e.preventDefault();
+  if (readOnly) return;
+  const trimmed = subTaskInput.trim();
+  if (!trimmed) return;
+  const nextSubTasks = [...subTasks, { text: trimmed, completed: false }];
+  setSubTasks(nextSubTasks);
+  setSubTaskInput("");
+  const completedCount = nextSubTasks.filter(st => st.completed).length;
+  const totalCount = nextSubTasks.length;
+  setProgress(Math.round((completedCount / totalCount) * 100));
+};
 
-        {isDropdownProject ? (
-          <>
-            <label className="jd-field-label">{type === "inventory" ? "Machinery Section" : "Name"}</label>
-            {readOnly || (type === "inventory" && (defaultProject || initial?.project)) ? (
-              <input className="jd-input" value={initial?.project || defaultProject || ""} disabled={true} />
-            ) : (
-              <>
-                <select
+const handleDeleteSubTask = (idx) => {
+  if (readOnly) return;
+  const nextSubTasks = subTasks.filter((_, i) => i !== idx);
+  setSubTasks(nextSubTasks);
+  const completedCount = nextSubTasks.filter(st => st.completed).length;
+  const totalCount = nextSubTasks.length;
+  if (totalCount > 0) {
+    setProgress(Math.round((completedCount / totalCount) * 100));
+  } else {
+    setProgress(0);
+  }
+};
+
+const computedEnd = endDateOverride || addDays(startDate, daysRequired);
+
+function submit() {
+  if (readOnly) return;
+  const finalTask = isSectionMachineryDropdown
+    ? (selectedMachineryOption === "__custom__" ? customMachineryInput.trim() : selectedMachineryOption)
+    : task.trim();
+
+  if (!finalTask) {
+    alert(type === "inventory" ? "Please select or enter a Machinery name." : "Please enter a Task No.");
+    return;
+  }
+  const finalProject = (type === "inventory" && (defaultProject || initial?.project))
+    ? (initial?.project || defaultProject)
+    : (isDropdownProject
+      ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
+      : (initial?.project || defaultProject || ""));
+  if (!finalProject) {
+    alert("Please select or enter a name.");
+    return;
+  }
+  onSave(
+    {
+      project: finalProject,
+      projectToken: type,
+      task: finalTask,
+      machineryPart: machineryPart.trim(),
+      location: location.trim(),
+      electricalFault,
+      mechanicalFault,
+      faultType: [electricalFault && "Electrical fault", mechanicalFault && "Mechanical fault"].filter(Boolean).join(", "),
+      assigneeName: selectedAssignees.join(", "),
+      startDate: noDate ? null : startDate,
+      breakdownTime: noDate ? null : breakdownTime,
+      breakdownEndTime: noDate ? null : breakdownEndTime,
+      daysRequired: noDate ? 0 : (Number(daysRequired) || 0),
+      endDateOverride: noDate ? null : (endDateOverride || startDate),
+      progress: Number(progress),
+      photos,
+      description,
+      subTasks
+    },
+    initial?.id
+  );
+}
+
+return (
+  <div className="jd-modal-overlay" onClick={onClose}>
+    <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <div className="jd-modal-head">
+        <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? (defaultProject ? `Report Breakdown under ${defaultProject}` : "Add Inventory Task") : `Add Task under ${defaultProject}`)}</h3>
+        <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+      </div>
+
+      {isDropdownProject ? (
+        <>
+          <label className="jd-field-label">{type === "inventory" ? "Machinery Section" : "Name"}</label>
+          {readOnly || (type === "inventory" && (defaultProject || initial?.project)) ? (
+            <input className="jd-input" value={initial?.project || defaultProject || ""} disabled={true} />
+          ) : (
+            <>
+              <select
+                className="jd-input"
+                value={selectedNameOption}
+                onChange={(e) => setSelectedNameOption(e.target.value)}
+              >
+                {(type === "inventory" ? inventoryItems : DEFAULT_NAMES).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+                <option value="__custom__">Custom Name...</option>
+              </select>
+              {selectedNameOption === "__custom__" && (
+                <input
+                  type="text"
                   className="jd-input"
-                  value={selectedNameOption}
-                  onChange={(e) => setSelectedNameOption(e.target.value)}
-                >
-                  {(type === "inventory" ? inventoryItems : DEFAULT_NAMES).map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                  <option value="__custom__">Custom Name...</option>
-                </select>
-                {selectedNameOption === "__custom__" && (
-                  <input
-                    type="text"
-                    className="jd-input"
-                    value={customNameInput}
-                    onChange={(e) => setCustomNameInput(e.target.value)}
-                    placeholder={type === "inventory" ? "Enter custom machinery section name" : "Enter custom maintenance name"}
-                    style={{ marginTop: "8px" }}
-                  />
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <label className="jd-field-label">Project</label>
-            <input className="jd-input" value={initial?.project || defaultProject} disabled={true} />
-          </>
-        )}
+                  value={customNameInput}
+                  onChange={(e) => setCustomNameInput(e.target.value)}
+                  placeholder={type === "inventory" ? "Enter custom machinery section name" : "Enter custom maintenance name"}
+                  style={{ marginTop: "8px" }}
+                />
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <label className="jd-field-label">Project</label>
+          <input className="jd-input" value={initial?.project || defaultProject} disabled={true} />
+        </>
+      )}
 
-        <label className="jd-field-label">{type === "inventory" ? "Machinery" : "Task Name"}</label>
-        {type === "inventory" ? (
-          readOnly ? (
-            <input className="jd-input" value={task} disabled={true} />
+      <label className="jd-field-label">{type === "inventory" ? "Machinery" : "Task Name"}</label>
+      {isSectionMachineryDropdown ? (
+        <>
+          {readOnly ? (
+            <input className="jd-input" value={initial?.task || ""} disabled={true} />
           ) : (
             <>
               <select
                 className="jd-input"
                 value={selectedMachineryOption}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedMachineryOption(val);
-                  if (val !== "__custom__") {
-                    setTask(val);
-                  } else {
-                    setTask(customMachineryInput);
-                  }
-                }}
+                onChange={(e) => setSelectedMachineryOption(e.target.value)}
               >
-                <optgroup label="Default Machinery (Wet Section A & Others)">
-                  {DEFAULT_WET_SECTION_A_MACHINERY.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </optgroup>
-                <option value="__custom__">+ Add Custom Machinery...</option>
+                {sectionMachineryList.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value="__custom__">Custom Machinery...</option>
               </select>
               {selectedMachineryOption === "__custom__" && (
                 <input
                   type="text"
                   className="jd-input"
                   value={customMachineryInput}
-                  onChange={(e) => {
-                    setCustomMachineryInput(e.target.value);
-                    setTask(e.target.value);
-                  }}
-                  placeholder="Enter custom machinery name (e.g. Conveyor Belt B2)..."
+                  onChange={(e) => setCustomMachineryInput(e.target.value)}
+                  placeholder="Enter custom machinery name..."
                   style={{ marginTop: "8px" }}
                 />
               )}
             </>
-          )
-        ) : (
-          <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. T-1001" disabled={readOnly} />
-        )}
+          )}
+        </>
+      ) : (
+        <input className="jd-input" value={task} onChange={(e) => setTask(e.target.value)} placeholder={type === "inventory" ? "e.g. Grinder A97" : "e.g. T-1001"} disabled={readOnly} />
+      )}
 
-        {type === "inventory" && (
-          <>
-            <label className="jd-field-label">Machinery Part</label>
-            <input
-              className="jd-input"
-              value={machineryPart}
-              onChange={(e) => setMachineryPart(e.target.value)}
-              placeholder="e.g. Gearbox, Motor, Shaft..."
-              disabled={readOnly}
-            />
-          </>
-        )}
+      {type === "inventory" && (
+        <>
+          <label className="jd-field-label">Machinery Part</label>
+          <input
+            className="jd-input"
+            value={machineryPart}
+            onChange={(e) => setMachineryPart(e.target.value)}
+            placeholder="e.g. Gearbox, Motor, Shaft..."
+            disabled={readOnly}
+          />
+        </>
+      )}
 
-        {type === "inventory" && (
-          <>
-            <label className="jd-field-label">Fault Type</label>
-            <div style={{ display: "flex", gap: "20px", marginBottom: "14px", flexWrap: "wrap", background: "var(--panel-2)", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
-                <input
-                  type="checkbox"
-                  checked={electricalFault}
-                  onChange={(e) => setElectricalFault(e.target.checked)}
-                  disabled={readOnly}
-                  style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
-                />
-                <span>⚡ Electrical fault</span>
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
-                <input
-                  type="checkbox"
-                  checked={mechanicalFault}
-                  onChange={(e) => setMechanicalFault(e.target.checked)}
-                  disabled={readOnly}
-                  style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
-                />
-                <span>⚙️ Mechanical fault</span>
-              </label>
-            </div>
-          </>
-        )}
+      {type === "inventory" && (
+        <>
+          <label className="jd-field-label">Fault Type</label>
+          <div style={{ display: "flex", gap: "20px", marginBottom: "14px", flexWrap: "wrap", background: "var(--panel-2)", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={electricalFault}
+                onChange={(e) => setElectricalFault(e.target.checked)}
+                disabled={readOnly}
+                style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
+              />
+              <span>⚡ Electrical fault</span>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13.5px", color: "var(--text)", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={mechanicalFault}
+                onChange={(e) => setMechanicalFault(e.target.checked)}
+                disabled={readOnly}
+                style={{ accentColor: "var(--accent)", width: "16px", height: "16px", cursor: readOnly ? "default" : "pointer" }}
+              />
+              <span>⚙️ Mechanical fault</span>
+            </label>
+          </div>
+        </>
+      )}
 
-        {type !== "inventory" && (
-          <>
-            <label className="jd-field-label">Location</label>
-            <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
-            <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
-          </>
-        )}
+      {type !== "inventory" && (
+        <>
+          <label className="jd-field-label">Location</label>
+          <input className="jd-input" list="jd-locations" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Factory Floor A" disabled={readOnly} />
+          <datalist id="jd-locations">{assigneeNames.map((a) => <option key={a} value={a} />)}</datalist>
+        </>
+      )}
 
-        <label className="jd-field-label">Assignee</label>
-        <AssigneeSelector
-          selected={selectedAssignees}
-          onChange={setSelectedAssignees}
-          readOnly={readOnly}
-          defaultAssignees={type === "maintenance" || type === "inventory" ? DEFAULT_ASSIGNEES : DEFAULT_PROJECT_ASSIGNEES}
-        />
+      <label className="jd-field-label">Assignee</label>
+      <AssigneeSelector
+        selected={selectedAssignees}
+        onChange={setSelectedAssignees}
+        readOnly={readOnly}
+        defaultAssignees={type === "maintenance" || type === "inventory" ? DEFAULT_ASSIGNEES : DEFAULT_PROJECT_ASSIGNEES}
+      />
 
-        <label className="jd-field-label">{type === "inventory" ? "Fault Reason" : "Description"}</label>
-        <textarea
-          className="jd-input"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={type === "inventory" ? "Enter breakdown fault reason..." : "Enter task description details..."}
-          disabled={readOnly}
-          style={{ minHeight: "80px", resize: "vertical" }}
-        />
+      <label className="jd-field-label">{type === "inventory" ? "Fault Reason" : "Description"}</label>
+      <textarea
+        className="jd-input"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={type === "inventory" ? "Enter breakdown fault reason..." : "Enter task description details..."}
+        disabled={readOnly}
+        style={{ minHeight: "80px", resize: "vertical" }}
+      />
 
-        {type !== "inventory" && (
-          <>
-            <label className="jd-field-label">Sub-tasks</label>
-            <div style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              {/* Sub-tasks list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto" }}>
-                {subTasks.map((st, idx) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13px", color: st.completed ? "var(--text-dim)" : "var(--text)", textDecoration: st.completed ? "line-through" : "none", flex: 1, userSelect: "none" }}>
-                      <input
-                        type="checkbox"
-                        checked={st.completed}
-                        onChange={() => handleToggleSubTask(idx)}
-                        disabled={readOnly}
-                        style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
-                      />
-                      <span>{st.text}</span>
-                    </label>
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSubTask(idx)}
-                        style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {subTasks.length === 0 && (
-                  <span style={{ fontSize: "12px", color: "var(--text-dim)", fontStyle: "italic" }}>No sub-tasks defined</span>
-                )}
-              </div>
-
-              {/* Add Sub-task form */}
-              {!readOnly && (
-                <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                  <input
-                    type="text"
-                    className="jd-input"
-                    style={{ flex: 1, margin: 0, padding: "6px 10px", fontSize: "12.5px" }}
-                    placeholder="Add new sub-task..."
-                    value={subTaskInput}
-                    onChange={(e) => setSubTaskInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddSubTask();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="jd-primary-btn"
-                    onClick={handleAddSubTask}
-                    style={{ padding: "6px 12px", fontSize: "12.5px" }}
-                  >
-                    Add
-                  </button>
+      {type !== "inventory" && (
+        <>
+          <label className="jd-field-label">Sub-tasks</label>
+          <div style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            {/* Sub-tasks list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "150px", overflowY: "auto" }}>
+              {subTasks.map((st, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "4px 0" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: readOnly ? "default" : "pointer", fontSize: "13px", color: st.completed ? "var(--text-dim)" : "var(--text)", textDecoration: st.completed ? "line-through" : "none", flex: 1, userSelect: "none" }}>
+                    <input
+                      type="checkbox"
+                      checked={st.completed}
+                      onChange={() => handleToggleSubTask(idx)}
+                      disabled={readOnly}
+                      style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
+                    />
+                    <span>{st.text}</span>
+                  </label>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubTask(idx)}
+                      style={{ background: "none", border: "none", color: "#ff6b6b", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
+              ))}
+              {subTasks.length === 0 && (
+                <span style={{ fontSize: "12px", color: "var(--text-dim)", fontStyle: "italic" }}>No sub-tasks defined</span>
               )}
             </div>
-          </>
-        )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 16px" }}>
-          <input
-            type="checkbox"
-            id="jd-no-date"
-            checked={noDate}
-            onChange={(e) => setNoDate(e.target.checked)}
-            disabled={readOnly}
-            style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
-          />
-          <label htmlFor="jd-no-date" style={{ fontSize: "13px", color: "var(--text)", cursor: readOnly ? "default" : "pointer", userSelect: "none" }}>
-            No date for this task
-          </label>
-        </div>
+            {/* Add Sub-task form */}
+            {!readOnly && (
+              <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                <input
+                  type="text"
+                  className="jd-input"
+                  style={{ flex: 1, margin: 0, padding: "6px 10px", fontSize: "12.5px" }}
+                  placeholder="Add new sub-task..."
+                  value={subTaskInput}
+                  onChange={(e) => setSubTaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSubTask();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="jd-primary-btn"
+                  onClick={handleAddSubTask}
+                  style={{ padding: "6px 12px", fontSize: "12.5px" }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
-        {type === "inventory" ? (
-          <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "14px" }}>
-            <div className="jd-form-row">
-              <div>
-                <label className="jd-field-label"><Calendar size={12} /> Start Date of Breakdown</label>
-                <input
-                  type="date"
-                  className="jd-input"
-                  value={noDate ? "" : startDate}
-                  onChange={(e) => {
-                    const newSDate = e.target.value;
-                    setStartDate(newSDate);
-                    const hours = calcDownHours(newSDate, breakdownTime, endDateOverride || newSDate, breakdownEndTime);
-                    setDaysRequired(hours);
-                  }}
-                  disabled={readOnly || noDate}
-                />
-              </div>
-              <div>
-                <label className="jd-field-label">Start Time of Breakdown</label>
-                <input
-                  type="time"
-                  className="jd-input"
-                  value={noDate ? "" : breakdownTime}
-                  onChange={(e) => {
-                    const newSTime = e.target.value;
-                    setBreakdownTime(newSTime);
-                    const hours = calcDownHours(startDate, newSTime, endDateOverride || startDate, breakdownEndTime);
-                    setDaysRequired(hours);
-                  }}
-                  disabled={readOnly || noDate}
-                />
-              </div>
-            </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 16px" }}>
+        <input
+          type="checkbox"
+          id="jd-no-date"
+          checked={noDate}
+          onChange={(e) => setNoDate(e.target.checked)}
+          disabled={readOnly}
+          style={{ accentColor: "var(--accent)", width: "15px", height: "15px", cursor: readOnly ? "default" : "pointer" }}
+        />
+        <label htmlFor="jd-no-date" style={{ fontSize: "13px", color: "var(--text)", cursor: readOnly ? "default" : "pointer", userSelect: "none" }}>
+          No date for this task
+        </label>
+      </div>
 
-            <div className="jd-form-row">
-              <div>
-                <label className="jd-field-label"><Calendar size={12} /> End Date of Breakdown</label>
-                <input
-                  type="date"
-                  className="jd-input"
-                  value={noDate ? "" : (endDateOverride || startDate)}
-                  onChange={(e) => {
-                    const newEDate = e.target.value;
-                    setEndDateOverride(newEDate);
-                    const hours = calcDownHours(startDate, breakdownTime, newEDate, breakdownEndTime);
-                    setDaysRequired(hours);
-                  }}
-                  disabled={readOnly || noDate}
-                />
-              </div>
-              <div>
-                <label className="jd-field-label">End Time of Breakdown</label>
-                <input
-                  type="time"
-                  className="jd-input"
-                  value={noDate ? "" : breakdownEndTime}
-                  onChange={(e) => {
-                    const newETime = e.target.value;
-                    setBreakdownEndTime(newETime);
-                    const hours = calcDownHours(startDate, breakdownTime, endDateOverride || startDate, newETime);
-                    setDaysRequired(hours);
-                  }}
-                  disabled={readOnly || noDate}
-                />
-              </div>
-            </div>
-
+      {type === "inventory" ? (
+        <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "14px" }}>
+          <div className="jd-form-row">
             <div>
-              <label className="jd-field-label">Total Down Hours (auto-calculated)</label>
+              <label className="jd-field-label"><Calendar size={12} /> Start Date of Breakdown</label>
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="date"
                 className="jd-input"
-                value={noDate ? "" : daysRequired}
-                onChange={(e) => setDaysRequired(e.target.value)}
-                placeholder="Calculated automatically from Start & End Date/Time"
+                value={noDate ? "" : startDate}
+                onChange={(e) => {
+                  const newSDate = e.target.value;
+                  setStartDate(newSDate);
+                  const hours = calcDownHours(newSDate, breakdownTime, endDateOverride || newSDate, breakdownEndTime);
+                  setDaysRequired(hours);
+                }}
+                disabled={readOnly || noDate}
+              />
+            </div>
+            <div>
+              <label className="jd-field-label">Start Time of Breakdown</label>
+              <input
+                type="time"
+                className="jd-input"
+                value={noDate ? "" : breakdownTime}
+                onChange={(e) => {
+                  const newSTime = e.target.value;
+                  setBreakdownTime(newSTime);
+                  const hours = calcDownHours(startDate, newSTime, endDateOverride || startDate, breakdownEndTime);
+                  setDaysRequired(hours);
+                }}
                 disabled={readOnly || noDate}
               />
             </div>
           </div>
-        ) : (
-          <>
-            <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-              <div>
-                <label className="jd-field-label"><Calendar size={12} /> Start date</label>
-                <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
-              </div>
-              <div>
-                <label className="jd-field-label">Days required</label>
-                <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
-              </div>
+
+          <div className="jd-form-row">
+            <div>
+              <label className="jd-field-label"><Calendar size={12} /> End Date of Breakdown</label>
+              <input
+                type="date"
+                className="jd-input"
+                value={noDate ? "" : (endDateOverride || startDate)}
+                onChange={(e) => {
+                  const newEDate = e.target.value;
+                  setEndDateOverride(newEDate);
+                  const hours = calcDownHours(startDate, breakdownTime, newEDate, breakdownEndTime);
+                  setDaysRequired(hours);
+                }}
+                disabled={readOnly || noDate}
+              />
             </div>
-
-            <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
-              <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
-              <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
+            <div>
+              <label className="jd-field-label">End Time of Breakdown</label>
+              <input
+                type="time"
+                className="jd-input"
+                value={noDate ? "" : breakdownEndTime}
+                onChange={(e) => {
+                  const newETime = e.target.value;
+                  setBreakdownEndTime(newETime);
+                  const hours = calcDownHours(startDate, breakdownTime, endDateOverride || startDate, newETime);
+                  setDaysRequired(hours);
+                }}
+                disabled={readOnly || noDate}
+              />
             </div>
-          </>
-        )}
-
-        {type === "inventory" ? (
-          <>
-            <label className="jd-field-label">Status</label>
-            <select
-              className="jd-input"
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              disabled={readOnly}
-              style={{ marginBottom: "14px" }}
-            >
-              <option value={0}>Awaiting Operator Analysis</option>
-              <option value={30}>Escalated to Maintenance Supervisor</option>
-              <option value={60}>Maintenance in Progress</option>
-              <option value={100}>Ready to Begin Production</option>
-            </select>
-          </>
-        ) : (
-          <>
-            <label className="jd-field-label">Progress: {progress}%</label>
-            <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" disabled={readOnly} />
-            {!readOnly && onQuickProgress && (
-              <div className="jd-quick-row" style={{ marginBottom: "14px" }}>
-                {[0, 25, 50, 75, 100].map((p) => (
-                  <button type="button" key={p} className="jd-chip-btn" onClick={() => { setProgress(p); onQuickProgress(p); }}>{p}%</button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        <label className="jd-field-label"><Camera size={12} /> Photos ({photos.length})</label>
-        {photos.length > 0 && (
-          <div className="jd-photo-grid">
-            {photos.map((p, idx) => (
-              <div
-                key={idx}
-                className="jd-photo-thumb"
-                onClick={() => onPreviewPhoto && onPreviewPhoto({ title: `${task} — ${initial?.project || defaultProject || "Photos"}`, photos, initialIndex: idx })}
-              >
-                <img src={p} alt={`Photo ${idx + 1}`} />
-                {!readOnly && (
-                  <button
-                    type="button"
-                    className="jd-photo-remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPhotos(photos.filter((_, i) => i !== idx));
-                    }}
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
           </div>
-        )}
 
-        {!readOnly && (
-          <label className="jd-photo-upload-btn">
-            <Upload size={14} /> {uploading ? "Compressing & attaching..." : "Upload Photos"}
+          <div>
+            <label className="jd-field-label">Total Down Hours (auto-calculated)</label>
             <input
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              disabled={uploading}
-              onChange={async (e) => {
-                const files = Array.from(e.target.files || []);
-                if (!files.length) return;
-                setUploading(true);
-                const compressedList = [];
-                for (const file of files) {
-                  try {
-                    const dataUrl = await compressImage(file);
-                    compressedList.push(dataUrl);
-                  } catch (err) {
-                    console.error("Compression error:", err);
-                  }
-                }
-                setPhotos((prev) => [...prev, ...compressedList]);
-                setUploading(false);
-                e.target.value = "";
-              }}
+              type="number"
+              min="0"
+              step="0.01"
+              className="jd-input"
+              value={noDate ? "" : daysRequired}
+              onChange={(e) => setDaysRequired(e.target.value)}
+              placeholder="Calculated automatically from Start & End Date/Time"
+              disabled={readOnly || noDate}
             />
-          </label>
-        )}
-
-        <div className="jd-modal-actions">
-          {readOnly ? (
-            <button type="button" className="jd-primary-btn jd-full" onClick={onClose}>Close view</button>
-          ) : (
-            <>
-              {onDelete && (
-                <button type="button" className="jd-danger-btn" onClick={onDelete}><Trash2 size={14} /> Delete</button>
-              )}
-              <button type="submit" className="jd-primary-btn" disabled={uploading}>{initial ? "Save changes" : "Add task"}</button>
-            </>
-          )}
+          </div>
         </div>
-      </form>
-    </div>
-  );
+      ) : (
+        <>
+          <div className="jd-form-row" style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+            <div>
+              <label className="jd-field-label"><Calendar size={12} /> Start date</label>
+              <input type="date" className="jd-input" value={noDate ? "" : startDate} onChange={(e) => setStartDate(e.target.value)} disabled={readOnly || noDate} />
+            </div>
+            <div>
+              <label className="jd-field-label">Days required</label>
+              <input type="number" min="0" className="jd-input" value={noDate ? "" : daysRequired} onChange={(e) => { setDaysRequired(e.target.value); setEndDateOverride(""); }} placeholder="e.g. 6" disabled={readOnly || noDate} />
+            </div>
+          </div>
+
+          <div style={{ opacity: noDate ? 0.5 : 1, pointerEvents: noDate ? "none" : "auto" }}>
+            <label className="jd-field-label">End date {!noDate && daysRequired && !endDateOverride ? "(auto — edit to override)" : ""}</label>
+            <input type="date" className="jd-input" value={noDate ? "" : computedEnd} onChange={(e) => setEndDateOverride(e.target.value)} disabled={readOnly || noDate} />
+          </div>
+        </>
+      )}
+
+      {type === "inventory" ? (
+        <>
+          <label className="jd-field-label">Status</label>
+          <select
+            className="jd-input"
+            value={progress}
+            onChange={(e) => setProgress(Number(e.target.value))}
+            disabled={readOnly}
+            style={{ marginBottom: "14px" }}
+          >
+            <option value={0}>Awaiting Operator Analysis</option>
+            <option value={30}>Escalated to Maintenance Supervisor</option>
+            <option value={60}>Maintenance in Progress</option>
+            <option value={100}>Ready to Begin Production</option>
+          </select>
+        </>
+      ) : (
+        <>
+          <label className="jd-field-label">Progress: {progress}%</label>
+          <input type="range" min="0" max="100" step="5" value={progress} onChange={(e) => setProgress(e.target.value)} className="jd-slider" disabled={readOnly} />
+          {!readOnly && onQuickProgress && (
+            <div className="jd-quick-row" style={{ marginBottom: "14px" }}>
+              {[0, 25, 50, 75, 100].map((p) => (
+                <button type="button" key={p} className="jd-chip-btn" onClick={() => { setProgress(p); onQuickProgress(p); }}>{p}%</button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <label className="jd-field-label"><Camera size={12} /> Photos ({photos.length})</label>
+      {photos.length > 0 && (
+        <div className="jd-photo-grid">
+          {photos.map((p, idx) => (
+            <div
+              key={idx}
+              className="jd-photo-thumb"
+              onClick={() => onPreviewPhoto && onPreviewPhoto({ title: `${task} — ${initial?.project || defaultProject || "Photos"}`, photos, initialIndex: idx })}
+            >
+              <img src={p} alt={`Photo ${idx + 1}`} />
+              {!readOnly && (
+                <button
+                  type="button"
+                  className="jd-photo-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotos(photos.filter((_, i) => i !== idx));
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!readOnly && (
+        <label className="jd-photo-upload-btn">
+          <Upload size={14} /> {uploading ? "Compressing & attaching..." : "Upload Photos"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            disabled={uploading}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              if (!files.length) return;
+              setUploading(true);
+              const compressedList = [];
+              for (const file of files) {
+                try {
+                  const dataUrl = await compressImage(file);
+                  compressedList.push(dataUrl);
+                } catch (err) {
+                  console.error("Compression error:", err);
+                }
+              }
+              setPhotos((prev) => [...prev, ...compressedList]);
+              setUploading(false);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
+
+      <div className="jd-modal-actions">
+        {readOnly ? (
+          <button type="button" className="jd-primary-btn jd-full" onClick={onClose}>Close view</button>
+        ) : (
+          <>
+            {onDelete && (
+              <button type="button" className="jd-danger-btn" onClick={onDelete}><Trash2 size={14} /> Delete</button>
+            )}
+            <button type="submit" className="jd-primary-btn" disabled={uploading}>{initial ? "Save changes" : "Add task"}</button>
+          </>
+        )}
+      </div>
+    </form>
+  </div>
+);
 }
 
 function AddMachinerySectionModal({ onClose, onSave, tasks }) {
@@ -3859,6 +4511,438 @@ function AddMachinerySectionModal({ onClose, onSave, tasks }) {
           <button type="submit" className="jd-primary-btn" disabled={saving}>
             {saving ? "Adding..." : "Add Machinery Section"}
           </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function MachineryDirectoryView({ inventoryItemsList, inventoryTasks, session }) {
+  const [search, setSearch] = useState("");
+  const [expandedSections, setExpandedSections] = useState({});
+  const [showAddMachineModal, setShowAddMachineModal] = useState(null);
+  const [showAddPartModal, setShowAddPartModal] = useState(null);
+  const [customRegistry, setCustomRegistry] = useState(() => {
+    try {
+      const saved = localStorage.getItem("rmp_custom_machinery_registry");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const saveRegistry = (next) => {
+    setCustomRegistry(next);
+    try {
+      localStorage.setItem("rmp_custom_machinery_registry", JSON.stringify(next));
+    } catch (e) {
+      console.error("Error saving machinery registry:", e);
+    }
+  };
+
+  const handleAddCustomMachine = (section, newMachineName) => {
+    const trimmed = newMachineName.trim();
+    if (!trimmed) return;
+    const next = { ...customRegistry };
+    if (!next[section]) next[section] = {};
+    if (!next[section][trimmed]) next[section][trimmed] = [];
+    saveRegistry(next);
+    setShowAddMachineModal(null);
+  };
+
+  const handleAddCustomPart = (section, machine, newPartName) => {
+    const trimmed = newPartName.trim();
+    if (!trimmed) return;
+    const next = { ...customRegistry };
+    if (!next[section]) next[section] = {};
+    if (!next[section][machine]) next[section][machine] = [];
+    if (!next[section][machine].includes(trimmed)) {
+      next[section][machine] = [...next[section][machine], trimmed];
+    }
+    saveRegistry(next);
+    setShowAddPartModal(null);
+  };
+
+  const sectionData = useMemo(() => {
+    const sectionMap = {};
+
+    const allSectionsSet = new Set([
+      ...DEFAULT_NAMES,
+      ...inventoryItemsList,
+      ...inventoryTasks.map(t => t.project).filter(Boolean)
+    ]);
+
+    allSectionsSet.forEach((sectionName) => {
+      const defaultMachinery = getSectionDefaultMachinery(sectionName, "inventory") || [];
+      const tasksInSection = inventoryTasks.filter(t => t.project && t.project.toLowerCase() === sectionName.toLowerCase() && t.task !== "__init__");
+      const taskMachineryNames = tasksInSection.map(t => t.task).filter(Boolean);
+      const registryMachinery = Object.keys(customRegistry[sectionName] || {});
+
+      const allMachinerySet = new Set([
+        ...defaultMachinery,
+        ...taskMachineryNames,
+        ...registryMachinery
+      ]);
+
+      const machineryList = Array.from(allMachinerySet).map((mName) => {
+        const partsFromTasks = tasksInSection
+          .filter(t => t.task && t.task.toLowerCase() === mName.toLowerCase())
+          .map(t => t.machineryPart || t.machinery_part)
+          .filter(Boolean);
+
+        const partsFromRegistry = customRegistry[sectionName]?.[mName] || [];
+        const uniqueParts = Array.from(new Set([...partsFromTasks, ...partsFromRegistry]));
+
+        const mTasks = tasksInSection.filter(t => t.task && t.task.toLowerCase() === mName.toLowerCase());
+        const totalDownHours = Math.round(mTasks.reduce((sum, t) => sum + (Number(t.daysRequired) || 0), 0) * 100) / 100;
+
+        return {
+          name: mName,
+          isDefault: defaultMachinery.includes(mName),
+          parts: uniqueParts,
+          breakdownCount: mTasks.length,
+          totalDownHours
+        };
+      });
+
+      sectionMap[sectionName] = {
+        name: sectionName,
+        machinery: machineryList,
+        totalBreakdowns: tasksInSection.length,
+        totalDownHours: Math.round(tasksInSection.reduce((sum, t) => sum + (Number(t.daysRequired) || 0), 0) * 100) / 100
+      };
+    });
+
+    return sectionMap;
+  }, [inventoryItemsList, inventoryTasks, customRegistry]);
+
+  const query = search.trim().toLowerCase();
+  const filteredSections = useMemo(() => {
+    return Object.values(sectionData).filter((sec) => {
+      if (!query) return true;
+      if (sec.name.toLowerCase().includes(query)) return true;
+      return sec.machinery.some(
+        (m) =>
+          m.name.toLowerCase().includes(query) ||
+          m.parts.some((p) => p.toLowerCase().includes(query))
+      );
+    });
+  }, [sectionData, query]);
+
+  const totalSections = Object.keys(sectionData).length;
+  const totalMachinery = Object.values(sectionData).reduce((acc, sec) => acc + sec.machinery.length, 0);
+  const totalParts = Object.values(sectionData).reduce((acc, sec) => acc + sec.machinery.reduce((mAcc, m) => mAcc + m.parts.length, 0), 0);
+
+  const toggleSection = (secName) => {
+    setExpandedSections(prev => ({ ...prev, [secName]: !prev[secName] }));
+  };
+
+  const expandAll = () => {
+    const next = {};
+    filteredSections.forEach(s => { next[s.name] = true; });
+    setExpandedSections(next);
+  };
+
+  const collapseAll = () => {
+    setExpandedSections({});
+  };
+
+  return (
+    <main className="jd-main">
+      <div className="jd-stats">
+        <StatCard label="Machinery Sections" value={totalSections} />
+        <StatCard label="Total Tracked Machines" value={totalMachinery} />
+        <StatCard label="Recorded Machinery Parts" value={totalParts} />
+      </div>
+
+      <div className="jd-panel">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <h3 style={{ margin: 0, fontFamily: "'Oswald', sans-serif", fontSize: "18px", color: "var(--accent)" }}>
+              Machinery &amp; Parts Directory
+            </h3>
+            <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>
+              Section-wise breakdown of default and custom machinery details, parts, and maintenance logs.
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              type="text"
+              className="jd-input"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by section, machine, or part..."
+              style={{ width: "260px", fontSize: "13px", padding: "6px 12px" }}
+            />
+            <button type="button" className="jd-input" onClick={expandAll} style={{ cursor: "pointer", padding: "6px 12px", fontSize: "12px" }}>
+              Expand All
+            </button>
+            <button type="button" className="jd-input" onClick={collapseAll} style={{ cursor: "pointer", padding: "6px 12px", fontSize: "12px" }}>
+              Collapse All
+            </button>
+            <button
+              type="button"
+              className="jd-secondary-btn"
+              onClick={() => {
+                const rows = [];
+                Object.values(sectionData).forEach((sec) => {
+                  sec.machinery.forEach((m) => {
+                    rows.push({
+                      "Section Name": sec.name,
+                      "Machinery Name": m.name,
+                      "Type": m.isDefault ? "Default" : "Custom",
+                      "Machinery Parts List": m.parts.length ? m.parts.join(", ") : "—",
+                      "Breakdown Count": m.breakdownCount,
+                      "Total Down Hours (hrs)": m.totalDownHours
+                    });
+                  });
+                });
+                exportToExcel(rows, "Machinery_and_Parts_Directory_Report", "Machinery Directory");
+              }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", padding: "6px 12px", cursor: "pointer" }}
+            >
+              <Download size={14} /> Export Excel
+            </button>
+          </div>
+        </div>
+
+        {filteredSections.length === 0 ? (
+          <p className="jd-empty-note">No machinery sections found matching "{search}".</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {filteredSections.map((sec) => {
+              const isExpanded = query ? true : !!expandedSections[sec.name];
+              return (
+                <div
+                  key={sec.name}
+                  style={{
+                    background: "var(--panel-2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "10px",
+                    overflow: "hidden"
+                  }}
+                >
+                  <div
+                    onClick={() => toggleSection(sec.name)}
+                    style={{
+                      padding: "12px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      background: "rgba(255,255,255,0.02)"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ color: "var(--accent)", display: "flex", alignItems: "center" }}>
+                        {isExpanded ? <Sun size={14} style={{ opacity: 0 }} /> : null}
+                        <FolderOpen size={18} style={{ color: "var(--accent)" }} />
+                      </span>
+                      <strong style={{ fontSize: "15px", color: "var(--text)" }}>{sec.name}</strong>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          background: "var(--panel)",
+                          color: "var(--text-dim)",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          border: "1px solid var(--border)"
+                        }}
+                      >
+                        {sec.machinery.length} Machine{sec.machinery.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      {sec.totalBreakdowns > 0 && (
+                        <span style={{ fontSize: "11.5px", color: "#f59e0b" }}>
+                          ⚡ {sec.totalBreakdowns} Breakdowns ({sec.totalDownHours} hrs down)
+                        </span>
+                      )}
+                      {session.role === "management" && (
+                        <button
+                          type="button"
+                          className="jd-primary-btn"
+                          style={{ padding: "4px 10px", fontSize: "11.5px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAddMachineModal(sec.name);
+                          }}
+                        >
+                          <Plus size={12} /> Add Machine
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ padding: "14px 16px", borderTop: "1px solid var(--border)", background: "var(--panel)" }}>
+                      {sec.machinery.length === 0 ? (
+                        <div style={{ fontSize: "12.5px", color: "var(--text-dim)", fontStyle: "italic" }}>
+                          No machines registered for this section yet.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                          {sec.machinery.map((m) => (
+                            <div
+                              key={m.name}
+                              style={{
+                                background: "var(--panel-2)",
+                                border: "1px solid var(--border)",
+                                borderRadius: "8px",
+                                padding: "12px 14px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px"
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                  <FileText size={15} style={{ color: "var(--accent)" }} />
+                                  <strong style={{ fontSize: "13.5px", color: "var(--text)" }}>{m.name}</strong>
+                                  <span
+                                    style={{
+                                      fontSize: "10px",
+                                      color: m.isDefault ? "#3da35d" : "#3b82f6",
+                                      background: m.isDefault ? "rgba(61,163,93,0.12)" : "rgba(59,130,246,0.12)",
+                                      padding: "1px 6px",
+                                      borderRadius: "4px",
+                                      border: `1px solid ${m.isDefault ? "rgba(61,163,93,0.3)" : "rgba(59,130,246,0.3)"}`
+                                    }}
+                                  >
+                                    {m.isDefault ? "Default" : "Custom"}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                  {m.breakdownCount > 0 ? (
+                                    <span style={{ fontSize: "11px", color: "var(--text-dim)" }}>
+                                      Logs: {m.breakdownCount} breakdown{m.breakdownCount === 1 ? "" : "s"} ({m.totalDownHours} hrs)
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: "11px", color: "var(--text-dim)" }}>No breakdowns logged</span>
+                                  )}
+                                  {session.role === "management" && (
+                                    <button
+                                      type="button"
+                                      className="jd-primary-btn"
+                                      style={{ padding: "3px 8px", fontSize: "11px" }}
+                                      onClick={() => setShowAddPartModal({ section: sec.name, machine: m.name })}
+                                    >
+                                      <Plus size={11} /> Add Part
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                                <span style={{ fontSize: "11.5px", color: "var(--text-dim)", fontWeight: "600" }}>Parts:</span>
+                                {m.parts.length > 0 ? (
+                                  m.parts.map((part) => (
+                                    <span
+                                      key={part}
+                                      style={{
+                                        fontSize: "11.5px",
+                                        background: "var(--panel)",
+                                        color: "var(--text)",
+                                        padding: "2px 8px",
+                                        borderRadius: "6px",
+                                        border: "1px solid var(--border)"
+                                      }}
+                                    >
+                                      ⚙️ {part}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ fontSize: "11.5px", color: "var(--text-dim)", fontStyle: "italic" }}>
+                                    No machinery parts registered yet
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showAddMachineModal && (
+        <AddCustomMachineModal
+          sectionName={showAddMachineModal}
+          onClose={() => setShowAddMachineModal(null)}
+          onAdd={(name) => handleAddCustomMachine(showAddMachineModal, name)}
+        />
+      )}
+
+      {showAddPartModal && (
+        <AddCustomPartModal
+          sectionName={showAddPartModal.section}
+          machineName={showAddPartModal.machine}
+          onClose={() => setShowAddPartModal(null)}
+          onAdd={(name) => handleAddCustomPart(showAddPartModal.section, showAddPartModal.machine, name)}
+        />
+      )}
+    </main>
+  );
+}
+
+function AddCustomMachineModal({ sectionName, onClose, onAdd }) {
+  const [name, setName] = useState("");
+  return (
+    <div className="jd-modal-overlay" onClick={onClose}>
+      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); onAdd(name); }}>
+        <div className="jd-modal-head">
+          <h3>Add Machine to {sectionName}</h3>
+          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <label className="jd-field-label">Machinery Name</label>
+        <input
+          className="jd-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Main Conveyor Belt Motor"
+          autoFocus
+        />
+        <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
+          <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="jd-primary-btn" disabled={!name.trim()}>Add Machine</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function AddCustomPartModal({ sectionName, machineName, onClose, onAdd }) {
+  const [partName, setPartName] = useState("");
+  return (
+    <div className="jd-modal-overlay" onClick={onClose}>
+      <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); onAdd(partName); }}>
+        <div className="jd-modal-head">
+          <h3>Add Part for {machineName}</h3>
+          <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "12px" }}>
+          Section: <strong>{sectionName}</strong>
+        </div>
+        <label className="jd-field-label">Machinery Part Name</label>
+        <input
+          className="jd-input"
+          value={partName}
+          onChange={(e) => setPartName(e.target.value)}
+          placeholder="e.g. Gearbox, Bearing, Shaft, Pulley..."
+          autoFocus
+        />
+        <div className="jd-modal-actions" style={{ marginTop: "24px" }}>
+          <button type="button" className="jd-danger-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="jd-primary-btn" disabled={!partName.trim()}>Add Part</button>
         </div>
       </form>
     </div>
