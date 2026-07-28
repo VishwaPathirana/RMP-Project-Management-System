@@ -1827,7 +1827,7 @@ export default function App() {
           <LayoutGrid size={14} /> Breakdown Dashboard
         </button>
         <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); }}>
-          <ListChecks size={14} /> Inventory Tasks
+          <ListChecks size={14} /> Breakdown Analysis
         </button>
         <button className={view === "machinery-directory" ? "active" : ""} onClick={() => setView("machinery-directory")}>
           <FolderOpen size={14} /> Machinery &amp; Parts
@@ -1859,7 +1859,7 @@ export default function App() {
               <LayoutGrid size={14} /> Breakdown Dashboard
             </button>
             <button className={view === "inventory" ? "active" : ""} onClick={() => { setView("inventory"); setSelectedInventorySection(""); setMenuOpen(false); }}>
-              <ListChecks size={14} /> Inventory Tasks
+              <ListChecks size={14} /> Breakdown Analysis
             </button>
             <button className={view === "machinery-directory" ? "active" : ""} onClick={() => { setView("machinery-directory"); setMenuOpen(false); }}>
               <FolderOpen size={14} /> Machinery &amp; Parts
