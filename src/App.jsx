@@ -69,14 +69,7 @@ const DEFAULT_PROJECT_NAMES = [
   "factory Sustainability and energy"
 ];
 
-const DEFAULT_INVENTORY_ITEMS = [
-  "Drilling Machine C21",
-  "Grinder A97",
-  "Hobbing Machine J2",
-  "Lathe A1",
-  "Milling Machine B9",
-  "Planer N2"
-];
+const DEFAULT_INVENTORY_ITEMS = [];
 
 const DEFAULT_WET_SECTION_A_MACHINERY = [
   "Unloading lorry conveyor",
@@ -86,13 +79,7 @@ const DEFAULT_WET_SECTION_A_MACHINERY = [
   "table",
   "washing conveyor",
   "coconut water tank",
-  "coconut water pump",
-  "Drilling Machine C21",
-  "Grinder A97",
-  "Hobbing Machine J2",
-  "Lathe A1",
-  "Milling Machine B9",
-  "Planer N2"
+  "coconut water pump"
 ];
 
 const DEFAULT_ASSIGNEES = [
