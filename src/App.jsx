@@ -475,13 +475,12 @@ const DEFAULT_ASSIGNEES = [
 ];
 
 const DEFAULT_PROJECT_ASSIGNEES = [
-  "Lakshan",
   "Engineering",
-  "Procument",
+  "Procurement",
   "Production",
-  "Udara",
-  "thushara",
-  "asanka"
+  "Thushara",
+  "Asanka",
+  "Outsource"
 ];
 
 function statusOf(progress, token = "") {
@@ -1220,6 +1219,7 @@ export default function App() {
   }, [tasks]);
 
   const allAssigneeNames = useMemo(() => {
+    const excludedUsernames = new Set(["vishwa", "udara", "user", "lakshan"]);
     const seen = new Set();
     const list = [];
     tasks.forEach((t) => {
@@ -1227,25 +1227,22 @@ export default function App() {
         const parts = t.assigneeName.split(",").map((s) => s.trim()).filter(Boolean);
         parts.forEach((val) => {
           const lower = val.toLowerCase();
-          if (!seen.has(lower)) {
+          if (!excludedUsernames.has(lower) && !seen.has(lower)) {
             seen.add(lower);
             list.push(val);
           }
         });
       }
     });
-    users.forEach((u) => {
-      if (u.username) {
-        const val = u.username.trim();
-        const lower = val.toLowerCase();
-        if (!seen.has(lower)) {
-          seen.add(lower);
-          list.push(val);
-        }
+    [...DEFAULT_ASSIGNEES, ...DEFAULT_PROJECT_ASSIGNEES].forEach((val) => {
+      const lower = val.toLowerCase().trim();
+      if (!excludedUsernames.has(lower) && !seen.has(lower)) {
+        seen.add(lower);
+        list.push(val);
       }
     });
     return list.sort();
-  }, [tasks, users]);
+  }, [tasks]);
 
   const mTotals = useMemo(() => {
     const c = { "Not Started": 0, "In Progress": 0, Completed: 0 };
