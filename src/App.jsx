@@ -1764,7 +1764,12 @@ export default function App() {
     <div className="jd-app">
       <style>{CSS}</style>
       <header className="jd-header">
-        <div className="jd-brand">
+        <div
+          className="jd-brand"
+          onClick={() => setView("m-dashboard")}
+          style={{ cursor: "pointer", userSelect: "none" }}
+          title="Go to Maintenance Dashboard"
+        >
           <img src={logo} alt="RMP Logo" className="jd-header-logo" />
           <div>
             <div className="jd-brand-title">RMP ENGINEERING SYSTEM</div>
