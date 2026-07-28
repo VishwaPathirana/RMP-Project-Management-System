@@ -3328,7 +3328,7 @@ export default function App() {
         <TaskFormModal
           initial={editTask}
           defaultType={formType}
-          defaultProject={selectedInventorySection}
+          defaultProject={formType === "project" ? selectedProject : selectedInventorySection}
           assigneeNames={assigneeNames}
           userNames={users.map((u) => u.username)}
           inventoryItems={inventoryItemsList}
@@ -4023,11 +4023,13 @@ function submit() {
   }
   const finalProject = (type === "inventory" && (defaultProject || initial?.project))
     ? (initial?.project || defaultProject)
-    : (isDropdownProject
-      ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
-      : (initial?.project || defaultProject || ""));
+    : (type === "project" && (defaultProject || initial?.project))
+      ? (initial?.project || defaultProject)
+      : (isDropdownProject
+        ? (selectedNameOption === "__custom__" ? customNameInput.trim() : selectedNameOption)
+        : (customNameInput.trim() || initial?.project || defaultProject || ""));
   if (!finalProject) {
-    alert("Please select or enter a name.");
+    alert("Please select or enter a project name.");
     return;
   }
   const finalEndDate = noDate
@@ -4064,7 +4066,17 @@ return (
   <div className="jd-modal-overlay" onClick={onClose}>
     <form className="jd-modal" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div className="jd-modal-head">
-        <h3>{initial ? (readOnly ? `View Task` : `Edit Task`) : (type === "maintenance" ? "Add Maintenance Task" : type === "inventory" ? (defaultProject ? `Report Breakdown under ${defaultProject}` : "Add Inventory Task") : `Add Task under ${defaultProject}`)}</h3>
+        <h3>
+          {initial
+            ? (readOnly ? "View Task" : "Edit Task")
+            : (type === "maintenance"
+                ? "Add Maintenance Task"
+                : type === "inventory"
+                  ? (defaultProject ? `Report Breakdown under ${defaultProject}` : "Add Breakdown Task")
+                  : (defaultProject ? `Add Task under ${defaultProject}` : "Add Project Task")
+              )
+          }
+        </h3>
         <button type="button" className="jd-icon-btn" onClick={onClose}><X size={18} /></button>
       </div>
 
@@ -4101,7 +4113,17 @@ return (
       ) : (
         <>
           <label className="jd-field-label">Project</label>
-          <input className="jd-input" value={initial?.project || defaultProject} disabled={true} />
+          {(defaultProject || initial?.project) ? (
+            <input className="jd-input" value={initial?.project || defaultProject || ""} disabled={true} />
+          ) : (
+            <input
+              type="text"
+              className="jd-input"
+              value={customNameInput}
+              onChange={(e) => setCustomNameInput(e.target.value)}
+              placeholder="Enter Project Name"
+            />
+          )}
         </>
       )}
 
